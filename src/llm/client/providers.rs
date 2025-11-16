@@ -16,6 +16,8 @@ use crate::{
     llm::tools::time::AgentToolTime,
 };
 
+use super::ollama_extractor::OllamaExtractorWrapper;
+
 /// 统一的Provider客户端枚举
 #[derive(Clone)]
 pub enum ProviderClient {
@@ -348,12 +350,18 @@ impl ProviderClient {
                 ProviderExtractor::Gemini(extractor)
             }
             ProviderClient::Ollama(client) => {
-                let extractor = client
-                    .extractor::<T>(model)
+                // Create standard agent for Ollama
+                let agent = client
+                    .agent(model)
                     .preamble(system_prompt)
                     .max_tokens(config.max_tokens.into())
+                    .temperature(config.temperature.into())
                     .build();
-                ProviderExtractor::Ollama(extractor)
+
+                // Wrap with OllamaExtractorWrapper to handle structured output
+                let wrapper = OllamaExtractorWrapper::new(agent, config.retry_attempts);
+
+                ProviderExtractor::Ollama(wrapper)
             }
         }
     }
@@ -421,7 +429,7 @@ where
     Gemini(Extractor<rig::providers::gemini::completion::CompletionModel, T>),
     Moonshot(Extractor<rig::providers::moonshot::CompletionModel, T>),
     DeepSeek(Extractor<rig::providers::deepseek::CompletionModel, T>),
-    Ollama(Extractor<rig::providers::ollama::CompletionModel<reqwest::Client>, T>),
+    Ollama(OllamaExtractorWrapper<T>),
 }
 
 impl<T> ProviderExtractor<T>

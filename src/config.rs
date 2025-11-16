@@ -133,7 +133,8 @@ pub struct LLMConfig {
     /// LLM Provider类型
     pub provider: LLMProvider,
 
-    /// LLM API KEY
+    /// LLM API KEY (optional for local providers like Ollama)
+    #[serde(default)]
     pub api_key: String,
 
     /// LLM API基地址
