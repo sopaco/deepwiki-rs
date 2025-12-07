@@ -139,24 +139,15 @@ where
 
     // Estimate token usage
     let input_text = format!("{} {}", prompt_sys, prompt_user);
-    let output_text_json = serde_json::to_string(&reply).unwrap_or_default();
-    let output_text_toon = toon_encode(&reply).unwrap_or_default();
-    let token_usage = estimate_token_usage(&input_text, &output_text_json);
-    let token_usage_toon = estimate_token_usage(&input_text, &output_text_toon);
-    let token_saved = token_usage.total_tokens.saturating_sub(token_usage_toon.total_tokens);
-    let token_saved_percent = if token_usage.total_tokens > 0 {
-        (token_saved as f64 / token_usage.total_tokens as f64) * 100.0
-    } else {
-        0.0
-    };
-    println!("Estimated token usage - JSON: {}, TOON: {}, Saved: {} ({:.6}%)", token_usage.total_tokens, token_usage_toon.total_tokens, token_saved, token_saved_percent);
+    let output_text = toon_encode(&reply).unwrap_or_default();
+    let token_usage = estimate_token_usage(&input_text, &output_text);
 
     // Cache result - Use method with token information
     context
         .cache_manager
         .write()
         .await
-        .set_with_tokens(cache_scope, &prompt_key, &reply, token_usage_toon)
+        .set_with_tokens(cache_scope, &prompt_key, &reply, token_usage)
         .await?;
 
     Ok(reply)
