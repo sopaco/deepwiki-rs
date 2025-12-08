@@ -1,6 +1,7 @@
 //! LLM Provider support module
 
 use anyhow::Result;
+use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
 use rig::{
     agent::Agent,
     client::CompletionClient,
@@ -28,7 +29,7 @@ pub enum ProviderClient {
     OpenRouter(rig::providers::openrouter::Client),
     Anthropic(rig::providers::anthropic::Client),
     Gemini(rig::providers::gemini::Client),
-    Ollama(rig::providers::ollama::Client),
+    Ollama(rig::providers::ollama::Client<reqwest::Client>),
 }
 
 impl ProviderClient {
@@ -72,8 +73,24 @@ impl ProviderClient {
                 Ok(ProviderClient::Gemini(client))
             }
             LLMProvider::Ollama => {
+                // Create custom reqwest client with Authorization header
+                let mut headers = HeaderMap::new();
+                if !config.api_key.is_empty() {
+                    let auth_value = format!("Bearer {}", config.api_key);
+                    headers.insert(
+                        AUTHORIZATION,
+                        HeaderValue::from_str(&auth_value)
+                            .map_err(|e| anyhow::anyhow!("Invalid API key format: {}", e))?,
+                    );
+                }
+                let http_client = reqwest::Client::builder()
+                    .default_headers(headers)
+                    .build()
+                    .map_err(|e| anyhow::anyhow!("Failed to build HTTP client: {}", e))?;
+
                 let client = rig::providers::ollama::Client::builder()
                     .base_url(&config.api_base_url)
+                    .with_client(http_client)
                     .build();
                 Ok(ProviderClient::Ollama(client))
             }
