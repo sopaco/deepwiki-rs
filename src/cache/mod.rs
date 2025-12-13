@@ -15,7 +15,7 @@ pub use performance_monitor::{CachePerformanceMonitor, CachePerformanceReport};
 /// Cache manager
 pub struct CacheManager {
     config: CacheConfig,
-    performance_monitor: CachePerformanceMonitor
+    performance_monitor: CachePerformanceMonitor,
 }
 
 /// Cache entry
@@ -35,7 +35,7 @@ impl CacheManager {
     pub fn new(config: CacheConfig, target_language: TargetLanguage) -> Self {
         Self {
             config,
-            performance_monitor: CachePerformanceMonitor::new(target_language.clone())
+            performance_monitor: CachePerformanceMonitor::new(target_language),
         }
     }
 
