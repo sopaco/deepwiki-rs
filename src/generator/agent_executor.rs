@@ -1,6 +1,7 @@
 use anyhow::Result;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use toon_format::encode_default as toon_encode;
 
 use crate::generator::context::GeneratorContext;
 use crate::llm::client::utils::estimate_token_usage;
@@ -138,7 +139,7 @@ where
 
     // Estimate token usage
     let input_text = format!("{} {}", prompt_sys, prompt_user);
-    let output_text = serde_json::to_string(&reply).unwrap_or_default();
+    let output_text = toon_encode(&reply).unwrap_or_default();
     let token_usage = estimate_token_usage(&input_text, &output_text);
 
     // Cache result - Use method with token information
