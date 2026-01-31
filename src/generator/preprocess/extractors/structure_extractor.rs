@@ -358,6 +358,10 @@ impl StructureExtractor {
                     "vue" | "svelte" => score += 0.3,
                     // Mini App
                     "wxml" | "ttml" | "ksml" => score += 0.3,
+                    // SQL and database files
+                    "sql" | "sqlproj" => score += 0.25,
+                    // .NET project files
+                    "csproj" | "sln" => score += 0.2,
                     // Configuration files
                     "toml" | "yaml" | "yml" | "json" | "xml" | "ini" | "env" => score += 0.1,
                     // Build and package management files
@@ -370,6 +374,12 @@ impl StructureExtractor {
                     "html" | "htm" | "hbs" | "mustache" | "ejs" => score += 0.1,
                     _ => {}
                 }
+            }
+            
+            // Bonus for database-related paths
+            let path_str = file.path.to_string_lossy().to_lowercase();
+            if path_str.contains("database") || path_str.contains("schema") || path_str.contains("migrations") {
+                score += 0.15;
             }
 
             file.importance_score = score.min(1.0);

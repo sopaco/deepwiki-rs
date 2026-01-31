@@ -42,13 +42,22 @@ impl StepForwardAgent for KeyModulesInsight {
                 DataSource::ResearchResult(AgentType::SystemContextResearcher.to_string()),
                 DataSource::ResearchResult(AgentType::DomainModulesDetector.to_string()),
             ],
-            optional_sources: vec![],
+            // Use architecture and database docs for module insights
+            optional_sources: vec![DataSource::knowledge_categories(vec!["architecture", "database"])],
         }
     }
 
     fn prompt_template(&self) -> PromptTemplate {
         PromptTemplate {
-            system_prompt: "You are a software development expert. Based on the information provided by the user, investigate the technical details of core modules"
+            system_prompt: r#"You are a software development expert. Based on the information provided by the user, investigate the technical details of core modules.
+
+You may have access to existing product description, requirements and architecture documentation from external sources.
+If available:
+- Reference documented component responsibilities and interfaces
+- Validate implementation against documented design patterns
+- Use established terminology for components and modules
+- Identify any gaps between documented and actual component behavior
+- Incorporate design rationale and constraints from the documentation"#
                 .to_string(),
             opening_instruction: "Based on the following project information and research materials, analyze the core modules:".to_string(),
             closing_instruction: "".to_string(),

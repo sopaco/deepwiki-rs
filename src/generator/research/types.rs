@@ -13,6 +13,7 @@ pub enum AgentType {
     WorkflowResearcher,
     KeyModulesInsight,
     BoundaryAnalyzer,
+    DatabaseOverviewAnalyzer,
 }
 
 impl AgentType {
@@ -25,6 +26,7 @@ impl AgentType {
             AgentType::WorkflowResearcher => target_language.msg_agent_type("workflow"),
             AgentType::KeyModulesInsight => target_language.msg_agent_type("key_modules"),
             AgentType::BoundaryAnalyzer => target_language.msg_agent_type("boundary"),
+            AgentType::DatabaseOverviewAnalyzer => target_language.msg_agent_type("database"),
         }
     }
 }
@@ -39,6 +41,7 @@ impl Display for AgentType {
             AgentType::WorkflowResearcher => "Workflow Research Report",
             AgentType::KeyModulesInsight => "Key Modules and Components Research Report",
             AgentType::BoundaryAnalyzer => "Boundary Interface Research Report",
+            AgentType::DatabaseOverviewAnalyzer => "Database Overview Research Report",
         };
         write!(f, "{}", str)
     }
@@ -313,6 +316,182 @@ impl Default for BoundaryAnalysisReport {
             integration_suggestions: Vec::new(),
             confidence_score: 0.0,
             router_boundaries: Vec::new(),
+        }
+    }
+}
+
+/// Database Overview analysis result
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct DatabaseOverviewReport {
+    /// Database projects found in the solution
+    pub database_projects: Vec<DatabaseProject>,
+    /// All tables discovered across all database projects
+    pub tables: Vec<DatabaseTable>,
+    /// All views discovered across all database projects
+    pub views: Vec<DatabaseView>,
+    /// All stored procedures discovered across all database projects
+    pub stored_procedures: Vec<StoredProcedure>,
+    /// All functions discovered across all database projects
+    pub database_functions: Vec<DatabaseFunction>,
+    /// Table relationships (foreign keys, references)
+    pub table_relationships: Vec<TableRelationship>,
+    /// Data flow patterns identified
+    pub data_flows: Vec<DataFlow>,
+    /// Analysis confidence score (1-10)
+    pub confidence_score: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct DatabaseProject {
+    /// Project name (from .sqlproj)
+    pub name: String,
+    /// Project file path
+    pub project_path: String,
+    /// Target database platform (SQL Server, etc.)
+    pub target_platform: Option<String>,
+    /// Number of tables
+    pub table_count: usize,
+    /// Number of views
+    pub view_count: usize,
+    /// Number of stored procedures
+    pub procedure_count: usize,
+    /// Number of functions
+    pub function_count: usize,
+    /// Referenced database projects or DACPACs
+    pub references: Vec<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct DatabaseTable {
+    /// Schema name (e.g., dbo)
+    pub schema: String,
+    /// Table name
+    pub name: String,
+    /// Column definitions
+    pub columns: Vec<TableColumn>,
+    /// Primary key columns
+    pub primary_key: Vec<String>,
+    /// Description/purpose of the table
+    pub description: String,
+    /// Source file path
+    pub source_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct TableColumn {
+    /// Column name
+    pub name: String,
+    /// Data type (e.g., INT, NVARCHAR(100))
+    pub data_type: String,
+    /// Whether the column allows NULL
+    pub nullable: bool,
+    /// Whether this is an identity/auto-increment column
+    pub is_identity: bool,
+    /// Default value if any
+    pub default_value: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct DatabaseView {
+    /// Schema name
+    pub schema: String,
+    /// View name
+    pub name: String,
+    /// Description of what the view does
+    pub description: String,
+    /// Tables referenced by this view
+    pub referenced_tables: Vec<String>,
+    /// Source file path
+    pub source_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct StoredProcedure {
+    /// Schema name
+    pub schema: String,
+    /// Procedure name
+    pub name: String,
+    /// Parameters
+    pub parameters: Vec<ProcedureParameter>,
+    /// Description of what the procedure does
+    pub description: String,
+    /// Tables referenced (SELECT, INSERT, UPDATE, DELETE)
+    pub referenced_tables: Vec<String>,
+    /// Source file path
+    pub source_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ProcedureParameter {
+    /// Parameter name (including @)
+    pub name: String,
+    /// Data type
+    pub data_type: String,
+    /// Whether it has a default value (is optional)
+    pub is_optional: bool,
+    /// Direction: INPUT, OUTPUT, INOUT
+    pub direction: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct DatabaseFunction {
+    /// Schema name
+    pub schema: String,
+    /// Function name
+    pub name: String,
+    /// Function type: Scalar, Table-valued, etc.
+    pub function_type: String,
+    /// Parameters
+    pub parameters: Vec<ProcedureParameter>,
+    /// Return type
+    pub return_type: String,
+    /// Description
+    pub description: String,
+    /// Source file path
+    pub source_path: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct TableRelationship {
+    /// Source table (schema.table)
+    pub from_table: String,
+    /// Source column(s)
+    pub from_columns: Vec<String>,
+    /// Target table (schema.table)
+    pub to_table: String,
+    /// Target column(s)
+    pub to_columns: Vec<String>,
+    /// Relationship type: ForeignKey, Reference, Implicit
+    pub relationship_type: String,
+    /// Constraint name if explicit FK
+    pub constraint_name: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct DataFlow {
+    /// Flow name/description
+    pub name: String,
+    /// Source (table, external system, or procedure)
+    pub source: String,
+    /// Destination (table, external system, or procedure)
+    pub destination: String,
+    /// Operations involved (INSERT, UPDATE, MERGE, etc.)
+    pub operations: Vec<String>,
+    /// Procedures involved in this flow
+    pub procedures_involved: Vec<String>,
+}
+
+impl Default for DatabaseOverviewReport {
+    fn default() -> Self {
+        Self {
+            database_projects: Vec::new(),
+            tables: Vec::new(),
+            views: Vec::new(),
+            stored_procedures: Vec::new(),
+            database_functions: Vec::new(),
+            table_relationships: Vec::new(),
+            data_flows: Vec::new(),
+            confidence_score: 0.0,
         }
     }
 }

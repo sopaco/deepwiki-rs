@@ -31,7 +31,8 @@ impl StepForwardAgent for ArchitectureEditor {
                 DataSource::ResearchResult(ResearchAgentType::ArchitectureResearcher.to_string()),
                 DataSource::ResearchResult(ResearchAgentType::WorkflowResearcher.to_string()),
             ],
-            optional_sources: vec![],
+            // Use architecture, deployment, database and ADR docs
+            optional_sources: vec![DataSource::knowledge_categories(vec!["architecture", "deployment", "database", "adr"])],
         }
     }
 
@@ -44,6 +45,16 @@ impl StepForwardAgent for ArchitectureEditor {
 2. **Documentation Writing Capability**: Proficient in C4 model, UML diagrams, and architecture visualization, with rich and detailed language descriptions
 3. **Technical Insight Capability**: Identify key technical decisions, architecture trade-offs, and design patterns
 4. **Communication Skills**: Express complex technical architectures in a clear and understandable manner
+
+## External Knowledge Integration:
+You may have access to existing product description, requirements and architecture documentation from external sources.
+If available:
+- Incorporate established architectural principles and design decisions
+- Cross-reference implementation findings with documented architecture
+- Highlight any architectural drift or gaps between documentation and code
+- Use consistent terminology and naming conventions from the documentation
+- Reference documented ADRs (Architecture Decision Records) when relevant
+- Validate that code structure aligns with documented architecture patterns
 
 ## C4 Architecture Documentation Standards:
 You need to generate complete architecture documentation conforming to the C4 model Container level, including:
@@ -60,6 +71,7 @@ You need to generate complete architecture documentation conforming to the C4 mo
 3. **Professionalism**: Use standard architecture terminology and expressions
 4. **Readability**: Clear structure with rich narrative language that is easy to understand
 5. **Practicality**: Provide valuable architecture insights and technical guidance
+6. **Consistency**: Maintain alignment with external documentation when available
 "#.to_string(),
 
             opening_instruction: r#"Based on the following research materials, write a complete, in-depth, and detailed C4 architecture document. Please carefully analyze all provided research reports and extract key architectural information:

@@ -31,7 +31,8 @@ impl StepForwardAgent for WorkflowEditor {
                 DataSource::ResearchResult(ResearchAgentType::WorkflowResearcher.to_string()),
                 DataSource::CODE_INSIGHTS,
             ],
-            optional_sources: vec![],
+            // Use workflow docs for workflow documentation
+            optional_sources: vec![DataSource::knowledge_categories(vec!["workflow", "architecture"])],
         }
     }
 
@@ -47,6 +48,16 @@ Your task is to write a complete, in-depth, and detailed workflow document title
 3. **System Insight Skills**: Identify key execution paths, process nodes, and system coordination mechanisms
 4. **Technical Documentation Skills**: Express complex workflows in a clear and understandable manner
 
+## External Knowledge Integration:
+You may have access to existing product description, requirements and architecture documentation from external sources.
+If available:
+- Incorporate documented business process flows and terminology
+- Cross-reference code workflows with documented business requirements
+- Highlight any gaps between documented processes and implementation
+- Use established process naming conventions and descriptions
+- Reference documented process owners and stakeholders
+- Validate implementation completeness against documented requirements
+
 ## Workflow Documentation Standards:
 You need to generate complete workflow documentation that meets both business and technical requirements, including:
 - **Main Process Overview**: System core workflows and key execution paths
@@ -60,7 +71,8 @@ You need to generate complete workflow documentation that meets both business an
 2. **Accuracy**: Based on research data, ensure accuracy and executability of process descriptions
 3. **Professionalism**: Use standard process analysis terminology and expressions
 4. **Readability**: Clear structure, rich narrative language, easy to understand and execute
-5. **Practicality**: Provide valuable process guidance and operational details"#.to_string(),
+5. **Practicality**: Provide valuable process guidance and operational details
+6. **Alignment**: Maintain consistency with external business process documentation when available"#.to_string(),
 
             opening_instruction: r#"Based on the following comprehensive research materials, write a complete, in-depth, and detailed system core workflow document. Please carefully analyze all provided research reports and extract key workflow information:
 

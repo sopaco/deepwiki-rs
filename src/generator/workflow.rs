@@ -60,6 +60,19 @@ pub async fn launch(c: &Config) -> Result<()> {
         memory,
     };
 
+    // Sync external knowledge if configured
+    if let Ok(syncer) = crate::integrations::KnowledgeSyncer::new(context.config.clone()) {
+        if syncer.should_sync().unwrap_or(false) {
+            println!("\n=== Syncing external knowledge sources ===");
+            if let Err(e) = syncer.sync_all().await {
+                eprintln!("⚠️  Warning: Failed to sync external knowledge: {}", e);
+            }
+        } else {
+            let lang = context.config.target_language.display_name();
+            println!("ℹ️  External knowledge cache ({}) is up to date", lang);
+        }
+    }
+
     // Preprocessing stage
     let preprocess_start = Instant::now();
     let preprocess_agent = PreProcessAgent::new();

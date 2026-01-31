@@ -103,59 +103,79 @@ pub struct CodeComplexity {
 #[serde(rename_all = "lowercase")]
 pub enum CodePurpose {
     /// Project execution entry
+    #[serde(alias = "Project execution entry")]
     Entry,
     /// Intelligent Agent
+    #[serde(alias = "Intelligent Agent")]
     Agent,
     /// Frontend UI page
+    #[serde(alias = "Frontend UI page")]
     Page,
     /// Frontend UI component
+    #[serde(alias = "Frontend UI component")]
     Widget,
     /// Code module for implementing specific logical functionality
+    #[serde(alias = "feature", alias = "specific_feature", alias = "specific-feature", alias = "Code module for implementing specific logical functionality")]
     SpecificFeature,
     /// Data type or model
+    #[serde(alias = "Data type or model")]
     Model,
     /// Program internal interface definition
+    #[serde(alias = "Program internal interface definition")]
     Types,
     /// Functional tool code for specific scenarios
+    #[serde(alias = "Functional tool code for specific scenarios")]
     Tool,
     /// Common, basic utility functions and classes, providing low-level auxiliary functions unrelated to business logic
+    #[serde(alias = "Common, basic utility functions and classes, providing low-level auxiliary functions unrelated to business logic")]
     Util,
     /// Configuration
-    #[serde(alias = "configuration")]
+    #[serde(alias = "configuration", alias = "Configuration")]
     Config,
     /// Middleware
+    #[serde(alias = "Middleware")]
     Middleware,
     /// Plugin
+    #[serde(alias = "Plugin")]
     Plugin,
     /// Router in frontend or backend system
+    #[serde(alias = "Router in frontend or backend system")]
     Router,
     /// Database component
+    #[serde(alias = "Database component")]
     Database,
     /// Service API for external calls, providing calling capabilities based on HTTP, RPC, IPC and other protocols.
+    #[serde(alias = "Service API for external calls, providing calling capabilities based on HTTP, RPC, IPC and other protocols.")]
     Api,
     /// Controller component in MVC architecture, responsible for handling business logic
+    #[serde(alias = "Controller component in MVC architecture, responsible for handling business logic")]
     Controller,
     /// Service component in MVC architecture, responsible for handling business rules
+    #[serde(alias = "Service component in MVC architecture, responsible for handling business rules")]
     Service,
     /// Collection of related code (functions, classes, resources) with clear boundaries and responsibilities
-        Module,
+    #[serde(alias = "Collection of related code (functions, classes, resources) with clear boundaries and responsibilities")]
+    Module,
     /// Dependency library
-    #[serde(alias = "library", alias = "package")]
+    #[serde(alias = "library", alias = "package", alias = "Dependency library")]
     Lib,
     /// Test component
-    #[serde(alias = "testing", alias = "tests")]
+    #[serde(alias = "testing", alias = "tests", alias = "Test component")]
     Test,
     /// Documentation component
-    #[serde(alias = "documentation", alias = "docs")]
+    #[serde(alias = "documentation", alias = "docs", alias = "Documentation component")]
     Doc,
     /// Data Access Layer component
+    #[serde(alias = "Data Access Layer component")]
     Dao,
     /// Context component
+    #[serde(alias = "Context component")]
     Context,
-    /// command-line interface (CLI) commandsx or message/request handlers
+    /// command-line interface (CLI) commands or message/request handlers
+    #[serde(alias = "command-line interface (CLI) commands or message/request handlers", alias = "command-line interface (CLI) commands or message/request handlers")]
     Command,
     /// Other uncategorized or unknown
-    #[serde(alias = "unknown", alias = "misc", alias = "miscellaneous")]
+    #[serde(alias = "unknown", alias = "misc", alias = "miscellaneous", alias = "Other uncategorized or unknown")]
     Other,
 }
 
@@ -212,6 +232,11 @@ impl CodePurposeMapper {
     pub fn map_by_path_and_name(file_path: &str, file_name: &str) -> CodePurpose {
         let path_lower = file_path.to_lowercase();
         let name_lower = file_name.to_lowercase();
+
+        // Extension-based mapping for SQL-related files
+        if name_lower.ends_with(".sqlproj") || name_lower.ends_with(".sql") {
+            return CodePurpose::Database;
+        }
 
         // Path-based mapping
         if path_lower.contains("/pages/")
@@ -347,5 +372,82 @@ impl CodePurposeMapper {
         }
 
         CodePurpose::Other
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_sql_file_classification() {
+        // .sqlproj files should always be classified as Database
+        assert_eq!(
+            CodePurposeMapper::map_by_path_and_name(
+                "/src/MyProject.sqlproj",
+                "MyProject.sqlproj"
+            ),
+            CodePurpose::Database
+        );
+
+        // .sql files should always be classified as Database
+        assert_eq!(
+            CodePurposeMapper::map_by_path_and_name(
+                "/src/CreateTable.sql",
+                "CreateTable.sql"
+            ),
+            CodePurpose::Database
+        );
+
+        // Even in root directory
+        assert_eq!(
+            CodePurposeMapper::map_by_path_and_name(
+                "/Schema.sql",
+                "Schema.sql"
+            ),
+            CodePurpose::Database
+        );
+
+        // Even with mixed case
+        assert_eq!(
+            CodePurposeMapper::map_by_path_and_name(
+                "/src/StoredProcedures.SQL",
+                "StoredProcedures.SQL"
+            ),
+            CodePurpose::Database
+        );
+    }
+
+    #[test]
+    fn test_sql_file_in_database_folder() {
+        // SQL files in /database/ folder should still be Database
+        assert_eq!(
+            CodePurposeMapper::map_by_path_and_name(
+                "/src/database/schema.sql",
+                "schema.sql"
+            ),
+            CodePurpose::Database
+        );
+    }
+
+    #[test]
+    fn test_path_based_classification() {
+        // Files in /database/ folder
+        assert_eq!(
+            CodePurposeMapper::map_by_path_and_name(
+                "/src/database/connection.cs",
+                "connection.cs"
+            ),
+            CodePurpose::Database
+        );
+
+        // Files in /repository/ folder
+        assert_eq!(
+            CodePurposeMapper::map_by_path_and_name(
+                "/src/repository/UserRepository.cs",
+                "UserRepository.cs"
+            ),
+            CodePurpose::Dao
+        );
     }
 }

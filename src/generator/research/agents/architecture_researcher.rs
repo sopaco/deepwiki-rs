@@ -32,6 +32,8 @@ impl StepForwardAgent for ArchitectureResearcher {
             optional_sources: vec![
                 DataSource::PROJECT_STRUCTURE,
                 DataSource::DEPENDENCY_ANALYSIS,
+                // Use architecture, deployment, database and ADR docs for architecture analysis
+                DataSource::knowledge_categories(vec!["architecture", "deployment", "database", "adr"]),
             ],
         }
     }
@@ -39,7 +41,15 @@ impl StepForwardAgent for ArchitectureResearcher {
     fn prompt_template(&self) -> PromptTemplate {
         PromptTemplate {
             system_prompt:
-                "You are a professional software architecture analyst, analyze system architecture based on research reports, output project architecture research documentation"
+                r#"You are a professional software architecture analyst, analyze system architecture based on research reports, output project architecture research documentation.
+
+You may have access to existing product description, requirements and architecture documentation from external sources.
+If available:
+- Validate code structure against documented architecture patterns
+- Cross-reference implementation with architectural decision records (ADRs)
+- Identify gaps between documented design and actual implementation
+- Incorporate established architectural principles and patterns from the documentation
+- Note any inconsistencies that should be addressed"#
                     .to_string(),
 
             opening_instruction: "The following research reports are provided for analyzing the system architecture:".to_string(),
@@ -48,7 +58,9 @@ impl StepForwardAgent for ArchitectureResearcher {
 ## Analysis Requirements:
 - Draw system architecture diagram based on the provided project information and research materials
 - Use mermaid format to represent architecture relationships
-- Highlight core components and interaction patterns"#
+- Highlight core components and interaction patterns
+- If external documentation is provided, validate implementation against documented architecture
+- Identify any architectural drift or gaps between documentation and code"#
                 .to_string(),
 
             llm_call_mode: LLMCallMode::PromptWithTools, // Use prompt mode

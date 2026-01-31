@@ -40,6 +40,8 @@ impl StepForwardAgent for BoundaryEditor {
                 DataSource::PROJECT_STRUCTURE,
                 DataSource::CODE_INSIGHTS,
                 DataSource::README_CONTENT,
+                // Use API and deployment docs for boundary documentation
+                DataSource::knowledge_categories(vec!["api", "deployment"]),
             ],
         }
     }
@@ -48,11 +50,22 @@ impl StepForwardAgent for BoundaryEditor {
         PromptTemplate {
             system_prompt: r#"You are a professional software interface documentation expert, focused on generating clear, detailed boundary interface documentation. Your task is to write an interface documentation with the title `Boundary Interfaces` based on the provided research report.
 
+## External Knowledge Integration:
+You may have access to existing product description, requirements and architecture documentation from external sources.
+If available:
+- Cross-reference code interfaces with documented API specifications
+- Use established endpoint naming and versioning conventions
+- Incorporate documented authentication and authorization patterns
+- Reference documented integration examples and best practices
+- Validate implementation against documented API contracts
+- Highlight any undocumented endpoints or changes
+
 ## Documentation Requirements
 1. **Complete Interfaces**: Describe all external interfaces in detail
 2. **Clear Parameters**: Each parameter must have a clear explanation
 3. **Rich Examples**: Provide practical usage examples
 4. **Easy to Understand**: Provide valuable references for developers
+5. **Consistency**: Maintain alignment with external API documentation when available
 
 ## Output Format
 - Use Markdown format
@@ -68,7 +81,8 @@ impl StepForwardAgent for BoundaryEditor {
 - Create separate sections for each boundary type
 - Include detailed parameter descriptions and usage examples
 - Highlight security considerations and best practices
-- Ensure clear document structure and complete content"#
+- Ensure clear document structure and complete content
+- Validate against external API documentation if available"#
                 .to_string(),
 
             llm_call_mode: crate::generator::step_forward_agent::LLMCallMode::Prompt,

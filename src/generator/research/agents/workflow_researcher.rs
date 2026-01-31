@@ -31,15 +31,29 @@ impl StepForwardAgent for WorkflowResearcher {
                 DataSource::ResearchResult(AgentType::DomainModulesDetector.to_string()),
                 DataSource::CODE_INSIGHTS
             ],
-            optional_sources: vec![],
+            // Use workflow docs for business process analysis
+            optional_sources: vec![DataSource::knowledge_categories(vec!["workflow", "architecture"])],
         }
     }
     
     fn prompt_template(&self) -> PromptTemplate {
         PromptTemplate {
-            system_prompt: "Analyze the project's core functional workflows, focusing from a functional perspective without being limited to excessive technical details".to_string(),
+            system_prompt: r#"Analyze the project's core functional workflows, focusing from a functional perspective without being limited to excessive technical details.
+
+You may have access to existing product description, requirements and architecture documentation from external sources.
+If available:
+- Cross-reference code workflows with documented business processes
+- Use established process terminology and flow descriptions
+- Validate implementation against documented process requirements
+- Identify any gaps between documented workflows and actual implementation
+- Incorporate business context and rationale from the documentation"#.to_string(),
             opening_instruction: "The following research reports are provided for analyzing the system's main workflows".to_string(),
-            closing_instruction: "Please analyze the system's core workflows based on the research materials".to_string(),
+            closing_instruction: r#"Please analyze the system's core workflows based on the research materials.
+
+If external documentation is provided:
+- Validate code workflows against documented business processes
+- Note any discrepancies or missing steps
+- Use consistent process terminology"#.to_string(),
             llm_call_mode: LLMCallMode::Extract,
             formatter_config: FormatterConfig::default(),
         }

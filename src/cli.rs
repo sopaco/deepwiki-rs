@@ -1,6 +1,6 @@
 use crate::config::{Config, LLMProvider};
 use crate::i18n::TargetLanguage;
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use std::path::PathBuf;
 
 /// DeepWiki-RS - Project knowledge base generation engine powered by Rust and AI
@@ -12,6 +12,9 @@ use std::path::PathBuf;
 #[command(author = "Sopaco")]
 #[command(version)]
 pub struct Args {
+    #[command(subcommand)]
+    pub command: Option<Commands>,
+
     /// Project path
     #[arg(short, long, default_value = ".")]
     pub project_path: PathBuf,
@@ -91,6 +94,21 @@ pub struct Args {
     /// Force regeneration (clear cache)
     #[arg(long)]
     pub force_regenerate: bool,
+}
+
+/// CLI subcommands
+#[derive(Subcommand, Debug)]
+pub enum Commands {
+    /// Sync external knowledge sources (local docs, etc.)
+    SyncKnowledge {
+        /// Configuration file path
+        #[arg(short, long)]
+        config: Option<PathBuf>,
+
+        /// Force sync even if cache is fresh
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 impl Args {

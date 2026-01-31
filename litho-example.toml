@@ -1,0 +1,457 @@
+# Litho (deepwiki-rs) Configuration File - Example
+# Copy this file to 'litho.toml' and customize the values for your project
+
+# ============================================================================
+# Project Configuration
+# ============================================================================
+
+# Project name (optional - will auto-detect from Cargo.toml, package.json, etc.)
+project_name = "Example Project"
+
+# Path to the project to analyze (default: current directory)
+project_path = "."
+
+# Where to output the generated documentation
+output_path = "./litho.docs"
+
+# Target language for documentation output
+# Supported: "zh" (Chinese), "en" (English), "ja" (Japanese), "ko" (Korean),
+#            "de" (German), "fr" (French), "ru" (Russian), "vi" (Vietnamese)
+target_language = "en"
+
+# ============================================================================
+# Analysis Configuration
+# ============================================================================
+
+# Analyze code dependencies between modules
+analyze_dependencies = true
+
+# Identify and analyze core components
+identify_components = true
+
+# Maximum directory depth to scan
+max_depth = 10
+
+# Percentage threshold for identifying core components (0-100)
+core_component_percentage = 40.0
+
+# Maximum file size to analyze (in bytes)
+# Default: 65536 (64KB)
+max_file_size = 65536
+
+# Include test files in analysis
+include_tests = false
+
+# Include hidden files (starting with .)
+include_hidden = false
+
+# Directories to exclude from analysis
+excluded_dirs = [
+    ".litho",
+    "litho.docs",
+    "target",
+    "node_modules",
+    ".git",
+    "build",
+    "dist",
+    "venv",
+    ".vs",
+    "bin",
+    "obj",
+    "Debug",
+    "Release",
+    "*Tests",
+    ".svelte-kit",
+    "__pycache__",
+    "__tests__",
+    "__mocks__",
+    "__fixtures__"
+]
+
+# Specific files to exclude
+excluded_files = [
+    "litho.toml",
+    "*.litho",
+    "*.log",
+    "*.tmp",
+    "*.cache",
+    "bun.lock",
+    "package-lock.json",
+    "yarn.lock",
+    "pnpm-lock.yaml",
+    "Cargo.lock",
+    ".gitignore",
+    "*.tpl",
+    "*.md",
+    "*.txt",
+    ".env"
+]
+
+# File extensions to exclude
+excluded_extensions = [
+    "jpg",
+    "jpeg",
+    "png",
+    "gif",
+    "bmp",
+    "ico",
+    "mp3",
+    "mp4",
+    "avi",
+    "pdf",
+    "zip",
+    "tar",
+    "exe",
+    "dll",
+    "so",
+    "archive"
+]
+
+# Only include these extensions (empty = include all supported languages)
+included_extensions = []
+
+# Path to architecture metadata file (optional)
+# architecture_meta_path = "./architecture.yaml"
+
+# ============================================================================
+# LLM Configuration
+# ============================================================================
+
+[llm]
+# LLM Provider to use
+# Supported: "openai", "moonshot", "deepseek", "mistral", "openrouter",
+#            "anthropic", "gemini", "ollama"
+provider = "openai"
+
+# API Key for the LLM provider
+# SECURITY: Never commit your real API key! Use environment variables instead.
+# Set via: $env:LITHO_LLM_API_KEY = "your-key-here" (PowerShell)
+#      or: export LITHO_LLM_API_KEY="your-key-here" (Bash)
+api_key = "${LITHO_LLM_API_KEY}"
+
+# Base URL for the LLM API
+# OpenAI: "https://api.openai.com/v1"
+# Anthropic: "https://api.anthropic.com"
+# DeepSeek: "https://api.deepseek.com"
+# Ollama: "http://localhost:11434/v1"
+api_base_url = "https://api.openai.com/v1"
+
+# Internal working directory
+internal_path = ".litho"
+
+# High-efficiency model for regular inference tasks
+# OpenAI examples: "gpt-4o-mini", "gpt-3.5-turbo"
+# Anthropic examples: "claude-3-5-haiku-20241022"
+# DeepSeek examples: "deepseek-chat"
+# Ollama examples: "llama3.2", "qwen2.5-coder"
+model_efficient = "gpt-4o-mini"
+
+# High-quality model for complex reasoning tasks (and fallback for efficient model)
+# OpenAI examples: "gpt-4o", "gpt-4-turbo"
+# Anthropic examples: "claude-3-5-sonnet-20241022", "claude-3-opus-20240229"
+# DeepSeek examples: "deepseek-reasoner"
+# Ollama examples: "llama3.2:70b", "qwen2.5-coder:32b"
+model_powerful = "gpt-4o"
+
+# Maximum tokens per request
+max_tokens = 4096
+
+# Temperature for LLM responses (0.0 = deterministic, 1.0 = creative)
+temperature = 0.1
+
+# Number of retry attempts for failed requests
+retry_attempts = 5
+
+# Delay between retries in milliseconds
+retry_delay_ms = 5000
+
+# Request timeout in seconds
+timeout_seconds = 300
+
+# Disable preset tools (advanced option)
+disable_preset_tools = false
+
+# Maximum number of parallel LLM requests
+max_parallels = 3
+
+# ============================================================================
+# Cache Configuration
+# ============================================================================
+
+[cache]
+# Enable caching of LLM responses
+enabled = true
+
+# Directory to store cache files
+cache_dir = ".litho/cache"
+
+# Cache expiration time in hours
+# Default: 8760 (365 days)
+expire_hours = 8760
+
+# ============================================================================
+# Knowledge Configuration (External Documentation Sources)
+# ============================================================================
+# Integrates existing documentation from local files into the
+# documentation generation process. External knowledge enhances generated
+# documentation with business context and architectural decisions.
+#
+# NEW: Categorized Documentation Support
+# Documents can now be organized into categories (architecture, database, api, etc.)
+# Each category is automatically routed to the most relevant agents for analysis.
+#
+# NEW: Document Chunking Support
+# Large documents are automatically split into manageable chunks for better LLM processing.
+# Chunking strategies: "semantic" (by sections), "paragraph", "fixed" (fixed size)
+#
+# Integration Points:
+# - Research Phase: Agents receive category-specific knowledge
+#   - SystemContextResearcher: architecture, adr
+#   - ArchitectureResearcher: architecture, deployment, database, adr
+#   - DomainModulesDetector: architecture, database
+#   - BoundaryAnalyzer: api, deployment
+#   - WorkflowResearcher: workflow, architecture
+#   - KeyModulesInsight: architecture, database
+#
+# - Compose Phase: Documentation agents use targeted knowledge
+#   - OverviewEditor: architecture, adr
+#   - ArchitectureEditor: architecture, deployment, database, adr
+#   - BoundaryEditor: api, deployment
+#   - WorkflowEditor: workflow, architecture
+#   - KeyModulesInsightEditor: architecture, database
+#
+# Benefits:
+# - More focused analysis with category-specific documentation
+# - Reduced token usage by only including relevant documents
+# - Better validation with targeted knowledge per agent
+# - Maintains consistency with organizational knowledge
+# - Large documents are automatically chunked to fit context windows
+# ============================================================================
+
+[knowledge.local_docs]
+# Enable local documentation integration
+# When enabled, Litho will read and cache local documentation files
+enabled = true
+
+# Local directory to cache processed content (optional)
+# If not specified, defaults to: .litho/cache/knowledge/local_docs/
+cache_dir = ".litho/cache/knowledge/local_docs"
+
+# Whether to re-process files if they change (default: true)
+watch_for_changes = true
+
+# ============================================================================
+# Default Chunking Configuration (applies to all categories unless overridden)
+# ============================================================================
+[knowledge.local_docs.default_chunking]
+# Enable chunking for large documents (default: true)
+enabled = true
+
+# Maximum chunk size in characters (~2000 tokens)
+# Default: 8000 characters
+max_chunk_size = 8000
+
+# Overlap between chunks to maintain context
+# Default: 200 characters
+chunk_overlap = 200
+
+# Chunking strategy:
+# - "semantic": Split by document structure (headers for Markdown, statements for SQL)
+# - "paragraph": Split by paragraphs (double newlines)
+# - "fixed": Fixed-size chunks with overlap
+# Default: "semantic"
+strategy = "semantic"
+
+# Minimum document size (chars) to trigger chunking
+# Documents smaller than this will not be chunked
+# Default: 10000 characters
+min_size_for_chunking = 10000
+
+# ============================================================================
+# Document Categories
+# ============================================================================
+# Define categorized document sources for targeted knowledge delivery.
+# Each category has:
+# - name: Category identifier (architecture, database, api, deployment, adr, workflow, general)
+# - description: Human-readable description
+# - paths: File paths or glob patterns
+# - target_agents: Which agents receive these docs (optional - if empty, available to all)
+# - chunking: Optional per-category chunking config (overrides default_chunking)
+
+# Architecture Documentation
+[[knowledge.local_docs.categories]]
+name = "architecture"
+description = "High-level system architecture and C4 model documentation"
+paths = [
+    "docs/architecture/**/*.md",
+    "docs/c4/**/*.md",
+    "docs/design/**/*.md",
+    "docs/system/**/*.md",
+    # PDF architecture diagrams
+    "docs/architecture/**/*.pdf"
+]
+target_agents = [
+    "SystemContextResearcher",
+    "ArchitectureResearcher",
+    "DomainModulesDetector",
+    "OverviewEditor",
+    "ArchitectureEditor"
+]
+
+# Database Documentation
+[[knowledge.local_docs.categories]]
+name = "database"
+description = "Database schema, ERD, and data model documentation"
+paths = [
+    "docs/database/**/*.md",
+    "docs/schema/**/*.md",
+    "docs/data-model/**/*.md",
+    "docs/erd/**/*.md",
+    # SQL files for reference
+    "docs/database/**/*.sql"
+]
+target_agents = [
+    "ArchitectureResearcher",
+    "DomainModulesDetector",
+    "KeyModulesInsight",
+    "ArchitectureEditor",
+    "KeyModulesInsightEditor"
+]
+# Override chunking for database docs - use smaller chunks for SQL files
+[knowledge.local_docs.categories.chunking]
+enabled = true
+max_chunk_size = 6000
+chunk_overlap = 150
+strategy = "semantic"  # Will use SQL-aware chunking for .sql files
+min_size_for_chunking = 8000
+
+# Deployment & Infrastructure Documentation
+[[knowledge.local_docs.categories]]
+name = "deployment"
+description = "Deployment, infrastructure, and DevOps documentation"
+paths = [
+    "docs/deployment/**/*.md",
+    "docs/infrastructure/**/*.md",
+    "docs/devops/**/*.md",
+    "docs/k8s/**/*.md",
+    "docs/docker/**/*.md"
+]
+target_agents = [
+    "ArchitectureResearcher",
+    "BoundaryAnalyzer",
+    "ArchitectureEditor",
+    "BoundaryEditor"
+]
+
+# API Documentation
+[[knowledge.local_docs.categories]]
+name = "api"
+description = "API specifications, endpoints, and integration documentation"
+paths = [
+    "docs/api/**/*.md",
+    "docs/openapi/**/*.yaml",
+    "docs/openapi/**/*.json",
+    "docs/swagger/**/*.yaml",
+    "docs/swagger/**/*.json",
+    "docs/endpoints/**/*.md"
+]
+target_agents = [
+    "BoundaryAnalyzer",
+    "BoundaryEditor"
+]
+
+# Architecture Decision Records (ADRs)
+[[knowledge.local_docs.categories]]
+name = "adr"
+description = "Architecture Decision Records and technical decisions"
+paths = [
+    "docs/adr/**/*.md",
+    "docs/decisions/**/*.md",
+    "docs/ADR/**/*.md"
+]
+target_agents = [
+    "SystemContextResearcher",
+    "ArchitectureResearcher",
+    "OverviewEditor",
+    "ArchitectureEditor"
+]
+
+# Workflow & Business Process Documentation
+[[knowledge.local_docs.categories]]
+name = "workflow"
+description = "Business processes, workflows, and user journeys"
+paths = [
+    "docs/workflows/**/*.md",
+    "docs/processes/**/*.md",
+    "docs/flows/**/*.md",
+    "docs/user-journeys/**/*.md"
+]
+target_agents = [
+    "WorkflowResearcher",
+    "WorkflowEditor"
+]
+
+# General Documentation
+# Use this for uncategorized or general-purpose documentation
+[[knowledge.local_docs.categories]]
+name = "general"
+description = "General documentation available to all agents"
+paths = [
+    "docs/general/**/*.md",
+    "docs/readme/**/*.md"
+]
+# Empty target_agents means available to all agents
+target_agents = []
+
+# ============================================================================
+# Local Docs Integration Usage
+# ============================================================================
+#
+# Manual sync (useful for testing or forcing cache refresh):
+#   cargo run -- sync-knowledge
+#   cargo run -- sync-knowledge --force  # Bypass cache TTL
+#
+# Automatic sync (during documentation generation):
+#   cargo run --  # Syncs if cache expired or missing
+#
+# Category-Specific Knowledge Loading:
+# Each agent automatically receives only the document categories relevant
+# to its analysis task. For example:
+# - BoundaryAnalyzer receives: api, deployment
+# - ArchitectureResearcher receives: architecture, deployment, database, adr
+#
+# Use Cases:
+# 1. Architecture Validation: Compare code structure with architecture docs
+# 2. ADR Integration: Reference architectural decisions in generated docs
+# 3. Database Documentation: Include ERD and schema docs for data analysis
+# 4. API Documentation: Cross-reference endpoints with API specifications
+# 5. Workflow Documentation: Validate workflows against business requirements
+# 6. Deployment Docs: Include infrastructure context for boundary analysis
+# ============================================================================
+
+# ============================================================================
+# Usage Examples
+# ============================================================================
+#
+# Basic usage:
+#   cargo run --
+#
+# Override settings via CLI:
+#   cargo run -- --target-language en --llm-api-key ${LITHO_LLM_API_KEY}
+#
+# Force regeneration (ignore cache):
+#   cargo run -- --force-regenerate
+#
+# Verbose output:
+#   cargo run -- --verbose
+#
+# Skip specific phases:
+#   cargo run -- --skip-preprocessing
+#   cargo run -- --skip-research
+#   cargo run -- --skip-documentation
+#
+# Sync external knowledge sources:
+#   cargo run -- sync-knowledge
+#   cargo run -- sync-knowledge --force
+#
+# ============================================================================

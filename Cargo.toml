@@ -44,6 +44,12 @@ regex = "1.11"
 # 哈希计算
 md-5 = "0.10"
 
+# Base64 encoding
+base64 = "0.22"
+
+# PDF parsing
+pdf-extract = "0.7"
+
 # 其他工具
 async-trait = "0.1"
 rand = "0.9"

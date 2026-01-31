@@ -39,6 +39,8 @@ pub enum DataSource {
     },
     /// Research results from research agent
     ResearchResult(String),
+    /// External knowledge from specific categories
+    ExternalKnowledgeByCategory(Vec<String>),
 }
 
 impl DataSource {
@@ -59,6 +61,11 @@ impl DataSource {
         scope: MemoryScope::PREPROCESS,
         key: ScopedKeys::ORIGINAL_DOCUMENT,
     };
+    
+    /// Create a data source for specific knowledge categories
+    pub fn knowledge_categories(categories: Vec<&str>) -> DataSource {
+        DataSource::ExternalKnowledgeByCategory(categories.iter().map(|s| s.to_string()).collect())
+    }
 }
 
 /// Agent data configuration - Declares required data sources
@@ -316,16 +323,18 @@ impl GeneratorPromptBuilder {
     /// Build standard prompt (system prompt and user prompt)
     /// Added custom_content parameter for inserting custom content
     /// Added include_timestamp parameter to control whether to include timestamp information
+    /// Added agent_filter parameter for filtering external knowledge by target agent
     pub async fn build_prompts(
         &self,
         context: &GeneratorContext,
         data_sources: &[DataSource],
         custom_content: Option<String>,
         include_timestamp: bool,
+        agent_filter: Option<&str>,
     ) -> Result<(String, String)> {
         let system_prompt = self.template.system_prompt.clone();
         let user_prompt = self
-            .build_standard_user_prompt(context, data_sources, custom_content, include_timestamp)
+            .build_standard_user_prompt(context, data_sources, custom_content, include_timestamp, agent_filter)
             .await?;
         Ok((system_prompt, user_prompt))
     }
@@ -333,12 +342,14 @@ impl GeneratorPromptBuilder {
     /// Build standard user prompt
     /// Added custom_content parameter
     /// Added include_timestamp parameter to control whether to include timestamp information
+    /// Added agent_filter parameter for filtering external knowledge by target agent
     async fn build_standard_user_prompt(
         &self,
         context: &GeneratorContext,
         data_sources: &[DataSource],
         custom_content: Option<String>,
         include_timestamp: bool,
+        agent_filter: Option<&str>,
     ) -> Result<String> {
         let mut prompt = String::new();
 
@@ -424,6 +435,22 @@ impl GeneratorPromptBuilder {
                         research_results.insert(agent_type.clone(), result);
                     }
                 }
+                DataSource::ExternalKnowledgeByCategory(categories) => {
+                    // Load external knowledge from specific categories
+                    let category_refs: Vec<&str> = categories.iter().map(|s| s.as_str()).collect();
+                    if let Some(knowledge) = context
+                        .load_external_knowledge_by_categories(&category_refs, agent_filter)
+                        .await
+                    {
+                        let cat_names = categories.join(", ");
+                        let formatted = format!("### External Knowledge ({})\n{}\n\n", cat_names, knowledge);
+                        let compressed = self
+                            .formatter
+                            .compress_content_if_needed(context, &formatted, &format!("Knowledge: {}", cat_names))
+                            .await?;
+                        prompt.push_str(&compressed);
+                    }
+                }
             }
         }
 
@@ -490,6 +517,7 @@ pub trait StepForwardAgent: Send + Sync {
     async fn execute(&self, context: &GeneratorContext) -> Result<Self::Output> {
         // 1. Get data configuration
         let config = self.data_config();
+        let agent_type_value = self.agent_type();
 
         // 2. Check if required data sources are available (automatic validation)
         for source in &config.required_sources {
@@ -503,6 +531,9 @@ pub trait StepForwardAgent: Send + Sync {
                     if context.get_research(agent_type).await.is_none() {
                         return Err(anyhow!("Required research result {} is not available", agent_type));
                     }
+                }
+                DataSource::ExternalKnowledgeByCategory(_) => {
+                    // External knowledge is optional by nature, don't fail if not available
                 }
             }
         }
@@ -525,7 +556,7 @@ pub trait StepForwardAgent: Send + Sync {
         let include_timestamp = self.should_include_timestamp();
 
         let (system_prompt, user_prompt) = prompt_builder
-            .build_prompts(context, &all_sources, custom_content, include_timestamp)
+            .build_prompts(context, &all_sources, custom_content, include_timestamp, Some(agent_type_value.as_str()))
             .await?;
 
         let system_prompt = format!("{}\n\n{}", system_prompt, language_instruction);
@@ -536,13 +567,13 @@ pub trait StepForwardAgent: Send + Sync {
         let log_tag = if let Some(agent_enum) = self.agent_type_enum() {
             agent_enum.display_name(&context.config.target_language)
         } else {
-            self.agent_type()
+            agent_type_value.clone()
         };
         
         let params = AgentExecuteParams {
             prompt_sys: system_prompt,
             prompt_user: user_prompt,
-            cache_scope: format!("{}/{}", self.memory_scope_key(), self.agent_type()),
+            cache_scope: format!("{}/{}", self.memory_scope_key(), agent_type_value.as_str()),
             log_tag,
         };
 
@@ -569,7 +600,7 @@ pub trait StepForwardAgent: Send + Sync {
         context
             .store_to_memory(
                 &self.memory_scope_key(),
-                &self.agent_type(),
+                agent_type_value.as_str(),
                 result_value.clone(),
             )
             .await?;
@@ -581,7 +612,7 @@ pub trait StepForwardAgent: Send + Sync {
             let agent_name = if let Some(agent_enum) = self.agent_type_enum() {
                 agent_enum.display_name(&context.config.target_language)
             } else {
-                self.agent_type()
+                agent_type_value.clone()
             };
             println!("✅ Sub-Agent [{}] execution completed", agent_name);
             Ok(typed_result)

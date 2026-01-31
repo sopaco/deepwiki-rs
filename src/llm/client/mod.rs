@@ -105,8 +105,8 @@ impl LLMClient {
                 Err(e) => match fallover_model {
                     Some(ref model) => {
                         let msg = self.config.target_language.msg_ai_service_error()
-                            .replace("{}", &llm_config.retry_attempts.to_string())
-                            .replace("{}", &format!(" trying fallback model {}...{}", model, e));
+                            .replacen("{}", &llm_config.retry_attempts.to_string(), 1)
+                            .replacen("{}", &format!(" trying fallback model {}...{}", model, e), 1);
                         eprintln!("{}", msg);
                         let user_prompt_with_fixer = format!("{}\n\n**Notice** There was an error during my previous LLM call, error message: \"{}\". Please ensure you avoid this error this time", user_prompt, e);
                         Box::pin(self.extract_inner(
@@ -119,8 +119,8 @@ impl LLMClient {
                     }
                     None => {
                         let msg = self.config.target_language.msg_ai_service_error()
-                            .replace("{}", &llm_config.retry_attempts.to_string())
-                            .replace("{}", &e.to_string());
+                            .replacen("{}", &llm_config.retry_attempts.to_string(), 1)
+                            .replacen("{}", &e.to_string(), 1);
                         eprintln!("{}", msg);
                         Err(e.into())
                     }
@@ -148,10 +148,11 @@ impl LLMClient {
     ) -> Result<ReActResponse> {
         let agent_builder = self.get_agent_builder();
         let agent = agent_builder.build_agent_with_tools(system_prompt);
+        let model_name = self.config.llm.model_efficient.clone();
 
         let response = self
             .retry_with_backoff(|| async {
-                ReActExecutor::execute(&agent, user_prompt, &react_config, &self.config.target_language)
+                ReActExecutor::execute(&agent, user_prompt, &react_config, &self.config.target_language, &model_name)
                     .await
                     .map_err(|e| e.into())
             })

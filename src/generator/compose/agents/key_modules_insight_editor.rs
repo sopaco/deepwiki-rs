@@ -102,7 +102,8 @@ impl StepForwardAgent for KeyModuleInsightEditor {
                 DataSource::ResearchResult(ResearchAgentType::WorkflowResearcher.to_string()),
                 DataSource::ResearchResult(self.insight_key.to_string()),
             ],
-            optional_sources: vec![],
+            // Use architecture and database docs for key module documentation
+            optional_sources: vec![DataSource::knowledge_categories(vec!["architecture", "database"])],
         }
     }
 

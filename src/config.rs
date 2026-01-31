@@ -123,6 +123,10 @@ pub struct Config {
     /// Cache configuration
     pub cache: CacheConfig,
 
+    /// Knowledge configuration for external documentation sources
+    #[serde(default)]
+    pub knowledge: KnowledgeConfig,
+
     /// Architecture meta description file path
     pub architecture_meta_path: Option<PathBuf>,
 }
@@ -177,6 +181,118 @@ pub struct CacheConfig {
 
     /// Cache expiration time (hours)
     pub expire_hours: u64,
+}
+
+/// Knowledge configuration for external documentation sources
+#[derive(Debug, Deserialize, Serialize, Clone, Default)]
+pub struct KnowledgeConfig {
+    /// Local documentation files configuration
+    pub local_docs: Option<LocalDocsConfig>,
+}
+
+/// Document category for organizing external knowledge
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct DocumentCategory {
+    /// Category identifier (e.g., "architecture", "database", "api")
+    pub name: String,
+    
+    /// Human-readable description of this category
+    #[serde(default)]
+    pub description: String,
+    
+    /// File paths or glob patterns for this category
+    #[serde(default)]
+    pub paths: Vec<String>,
+    
+    /// Which agents should receive documents from this category
+    /// If empty, documents are available to all agents
+    #[serde(default)]
+    pub target_agents: Vec<String>,
+    
+    /// Chunking configuration for large documents in this category
+    #[serde(default)]
+    pub chunking: Option<ChunkingConfig>,
+}
+
+/// Configuration for document chunking
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct ChunkingConfig {
+    /// Enable chunking for large documents (default: true)
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    
+    /// Maximum chunk size in characters (default: 8000 ~2000 tokens)
+    #[serde(default = "default_chunk_size")]
+    pub max_chunk_size: usize,
+    
+    /// Overlap between chunks in characters (default: 200)
+    #[serde(default = "default_chunk_overlap")]
+    pub chunk_overlap: usize,
+    
+    /// Chunking strategy: "semantic" (by sections), "fixed" (fixed size), "paragraph"
+    #[serde(default = "default_chunk_strategy")]
+    pub strategy: String,
+    
+    /// Minimum document size (chars) to trigger chunking (default: 10000)
+    #[serde(default = "default_min_size_for_chunking")]
+    pub min_size_for_chunking: usize,
+}
+
+impl Default for ChunkingConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            max_chunk_size: 8000,
+            chunk_overlap: 200,
+            strategy: "semantic".to_string(),
+            min_size_for_chunking: 10000,
+        }
+    }
+}
+
+fn default_chunk_size() -> usize {
+    8000
+}
+
+fn default_chunk_overlap() -> usize {
+    200
+}
+
+fn default_chunk_strategy() -> String {
+    "semantic".to_string()
+}
+
+fn default_min_size_for_chunking() -> usize {
+    10000
+}
+
+/// Local documentation files configuration
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct LocalDocsConfig {
+    /// Whether local docs integration is enabled
+    #[serde(default)]
+    pub enabled: bool,
+    
+    /// Categorized document sources
+    /// Each category can have its own paths and target agents
+    #[serde(default)]
+    pub categories: Vec<DocumentCategory>,
+
+    /// Local cache directory for processed content
+    pub cache_dir: Option<PathBuf>,
+
+    /// Whether to re-process files if they change
+    #[serde(default = "default_true")]
+    pub watch_for_changes: bool,
+    
+    /// Default chunking configuration for all categories
+    /// Can be overridden per category
+    #[serde(default)]
+    pub default_chunking: Option<ChunkingConfig>,
+}
+
+fn default_true() -> bool {
+    true
 }
 
 impl Config {
@@ -515,6 +631,7 @@ impl Default for Config {
             architecture_meta_path: None,
             llm: LLMConfig::default(),
             cache: CacheConfig::default(),
+            knowledge: KnowledgeConfig::default(),
         }
     }
 }

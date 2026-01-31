@@ -29,7 +29,11 @@ impl StepForwardAgent for OverviewEditor {
                 DataSource::ResearchResult(ResearchAgentType::SystemContextResearcher.to_string()),
                 DataSource::ResearchResult(ResearchAgentType::DomainModulesDetector.to_string()),
             ],
-            optional_sources: vec![DataSource::README_CONTENT],
+            optional_sources: vec![
+                DataSource::README_CONTENT,
+                // Use architecture and ADR docs for overview
+                DataSource::knowledge_categories(vec!["architecture", "adr"]),
+            ],
         }
     }
 
@@ -38,6 +42,15 @@ impl StepForwardAgent for OverviewEditor {
             system_prompt: r#"You are a professional software architecture documentation expert, focused on generating C4 architecture model SystemContext level documentation.
 
 Your task is to write a complete, in-depth, detailed, and easy-to-read C4 SystemContext document titled `Project Overview` based on the provided system context research report and domain module analysis results.
+
+## External Knowledge Integration:
+You may have access to existing product description, requirements and architecture documentation from external sources.
+If available:
+- Incorporate established business context and objectives
+- Reference documented stakeholders and user personas
+- Use documented terminology for systems and integrations
+- Validate implementation against documented system boundaries
+- Highlight any scope changes or undocumented features
 
 ## C4 SystemContext Documentation Requirements:
 1. **System Overview**: Clearly describe the system's core objectives, business value, and technical characteristics
@@ -49,7 +62,8 @@ Your task is to write a complete, in-depth, detailed, and easy-to-read C4 System
 ## Document Structure Requirements:
 - Include appropriate heading levels and chapter organization
 - Provide clear diagrams and visual content
-- Ensure content logic is clear and expression is accurate"#.to_string(),
+- Ensure content logic is clear and expression is accurate
+- Maintain consistency with external documentation when available"#.to_string(),
 
             opening_instruction: r#"Based on the following research materials, write a complete, in-depth, and detailed C4 SystemContext architecture document:
 

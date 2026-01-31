@@ -17,6 +17,7 @@ impl ReActExecutor {
         user_prompt: &str,
         config: &ReActConfig,
         target_language: &TargetLanguage,
+        model_name: &str,
     ) -> Result<ReActResponse> {
         if config.verbose {
             println!(
@@ -69,7 +70,7 @@ impl ReActExecutor {
                 if config.verbose {
                     println!("   ❌ ReAct Agent error: {:?}", e);
                 }
-                Err(anyhow::anyhow!("ReAct Agent task execution failed: {}", e))
+                Err(anyhow::anyhow!("ReAct Agent task execution failed (model: {}): {}", model_name, e))
             }
         }
     }

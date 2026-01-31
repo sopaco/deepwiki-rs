@@ -40,6 +40,10 @@ impl DocTree {
                 AgentType::Boundary.to_string(),
                 target_language.get_doc_filename("boundary"),
             ),
+            (
+                AgentType::Database.to_string(),
+                target_language.get_doc_filename("database"),
+            ),
         ]);
         Self { structure }
     }

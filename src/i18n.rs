@@ -152,6 +152,7 @@ impl TargetLanguage {
                     "architecture" => "2、架构概览.md".to_string(),
                     "workflow" => "3、工作流程.md".to_string(),
                     "boundary" => "5、边界调用.md".to_string(),
+                    "database" => "6、数据库概览.md".to_string(),
                     _ => format!("{}.md", doc_type),
                 }
             }
@@ -161,6 +162,7 @@ impl TargetLanguage {
                     "architecture" => "2.Architecture.md".to_string(),
                     "workflow" => "3.Workflow.md".to_string(),
                     "boundary" => "5.Boundary-Interfaces.md".to_string(),
+                    "database" => "6.Database-Overview.md".to_string(),
                     _ => format!("{}.md", doc_type),
                 }
             }
@@ -170,6 +172,7 @@ impl TargetLanguage {
                     "architecture" => "2-アーキテクチャ概要.md".to_string(),
                     "workflow" => "3-ワークフロー.md".to_string(),
                     "boundary" => "5-境界インターフェース.md".to_string(),
+                    "database" => "6-データベース概要.md".to_string(),
                     _ => format!("{}.md", doc_type),
                 }
             }
@@ -179,6 +182,7 @@ impl TargetLanguage {
                     "architecture" => "2-아키텍처-개요.md".to_string(),
                     "workflow" => "3-워크플로우.md".to_string(),
                     "boundary" => "5-경계-인터페이스.md".to_string(),
+                    "database" => "6-데이터베이스-개요.md".to_string(),
                     _ => format!("{}.md", doc_type),
                 }
             }
@@ -188,6 +192,7 @@ impl TargetLanguage {
                     "architecture" => "2-Architekturübersicht.md".to_string(),
                     "workflow" => "3-Arbeitsablauf.md".to_string(),
                     "boundary" => "5-Grenzschnittstellen.md".to_string(),
+                    "database" => "6-Datenbankübersicht.md".to_string(),
                     _ => format!("{}.md", doc_type),
                 }
             }
@@ -197,6 +202,7 @@ impl TargetLanguage {
                     "architecture" => "2-Aperçu-de-l'Architecture.md".to_string(),
                     "workflow" => "3-Flux-de-Travail.md".to_string(),
                     "boundary" => "5-Interfaces-de-Frontière.md".to_string(),
+                    "database" => "6-Aperçu-Base-de-Données.md".to_string(),
                     _ => format!("{}.md", doc_type),
                 }
             }
@@ -206,6 +212,7 @@ impl TargetLanguage {
                     "architecture" => "2-Обзор-Архитектуры.md".to_string(),
                     "workflow" => "3-Рабочий-Процесс.md".to_string(),
                     "boundary" => "5-Граничные-Интерфейсы.md".to_string(),
+                    "database" => "6-Обзор-Базы-Данных.md".to_string(),
                     _ => format!("{}.md", doc_type),
                 }
             }
@@ -215,6 +222,7 @@ impl TargetLanguage {
                     "architecture" => "2-Kiến-trúc.md".to_string(),
                     "workflow" => "3-Luồng-xử-lý.md".to_string(),
                     "boundary" => "5-Lớp-giao-tiếp-biên.md".to_string(),
+                    "database" => "6-Tổng-quan-Cơ-sở-Dữ-liệu.md".to_string(),
                     _ => format!("{}.md", doc_type),
                 }
             }
@@ -439,6 +447,16 @@ impl TargetLanguage {
                 TargetLanguage::French => "Rapport de recherche sur les interfaces de frontière",
                 TargetLanguage::Russian => "Отчет об исследовании граничных интерфейсов",
                 TargetLanguage::Vietnamese => "Báo cáo nghiên cứu giao diện biên",
+            }.to_string(),
+            "database" => match self {
+                TargetLanguage::Chinese => "数据库概览调研报告",
+                TargetLanguage::English => "Database Overview Research Report",
+                TargetLanguage::Japanese => "データベース概要調査レポート",
+                TargetLanguage::Korean => "데이터베이스 개요 조사 보고서",
+                TargetLanguage::German => "Datenbankübersicht-Forschungsbericht",
+                TargetLanguage::French => "Rapport de recherche sur l'aperçu de la base de données",
+                TargetLanguage::Russian => "Отчет об исследовании обзора базы данных",
+                TargetLanguage::Vietnamese => "Báo cáo nghiên cứu tổng quan cơ sở dữ liệu",
             }.to_string(),
             _ => agent_type.to_string(),
         }

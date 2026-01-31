@@ -81,21 +81,6 @@ impl TokenEstimator {
         }
     }
 
-    /// Estimate total token count for multiple text fragments
-    #[allow(dead_code)]
-    pub fn estimate_total_tokens(&self, texts: &[&str]) -> usize {
-        texts
-            .iter()
-            .map(|text| self.estimate_tokens(text).estimated_tokens)
-            .sum()
-    }
-
-    /// Check if text exceeds token limit
-    #[allow(dead_code)]
-    pub fn exceeds_limit(&self, text: &str, limit: usize) -> bool {
-        self.estimate_tokens(text).estimated_tokens > limit
-    }
-
     /// Count number of Chinese characters
     fn count_chinese_chars(&self, text: &str) -> usize {
         text.chars().filter(|c| self.is_chinese_char(*c)).count()

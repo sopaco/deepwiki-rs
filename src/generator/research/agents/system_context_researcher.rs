@@ -28,7 +28,11 @@ impl StepForwardAgent for SystemContextResearcher {
     fn data_config(&self) -> AgentDataConfig {
         AgentDataConfig {
             required_sources: vec![DataSource::PROJECT_STRUCTURE, DataSource::CODE_INSIGHTS],
-            optional_sources: vec![DataSource::README_CONTENT],
+            optional_sources: vec![
+                DataSource::README_CONTENT,
+                // Use architecture and ADR docs for system context analysis
+                DataSource::knowledge_categories(vec!["architecture", "adr"]),
+            ],
         }
     }
 
@@ -36,14 +40,26 @@ impl StepForwardAgent for SystemContextResearcher {
         PromptTemplate {
             system_prompt: r#"You are a professional software architecture analyst, specializing in project objective and system boundary analysis.
 
-Your task is to analyze and determine based on the provided project information:
-1. The project's core objectives and business value
-2. Project type and technical characteristics
-3. Target user groups and usage scenarios
-4. External system interactions
-5. System boundary definition
+Analyze the project to determine:
+1. Core objectives and business value
+2. Project type and tech stack
+3. Target users and use cases
+4. External system dependencies
+5. System boundaries (what's in/out of scope)
 
-Please return the analysis results in structured JSON format."#
+When external documentation is provided:
+- Cross-reference code against documented architecture
+- Flag gaps between docs and implementation
+- Use established business terminology
+
+Rrequired output style (extremely important):
+- Plain English, short sentences
+- No filler phrases ("it is important to note", "in order to")
+- No repetition - state each point once
+- Concrete specifics over vague generalities
+- If uncertain, say so briefly rather than padding
+
+Generate Output as JSON per existing schema."#
                 .to_string(),
 
             opening_instruction: "Based on the following research materials, analyze the project's core objectives and system positioning:".to_string(),
@@ -53,6 +69,8 @@ Please return the analysis results in structured JSON format."#
 - Accurately identify project type and technical characteristics
 - Clearly define target users and usage scenarios
 - Clearly delineate system boundaries
+- If external documentation is provided, validate code structure against it
+- Identify any gaps between documented architecture and actual implementation
 - Ensure analysis results conform to the C4 architecture model's system context level"#
                 .to_string(),
 

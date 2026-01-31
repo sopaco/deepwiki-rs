@@ -35,13 +35,25 @@ impl StepForwardAgent for DomainModulesDetector {
                 DataSource::DEPENDENCY_ANALYSIS,
                 DataSource::CODE_INSIGHTS,
             ],
-            optional_sources: vec![DataSource::PROJECT_STRUCTURE],
+            optional_sources: vec![
+                DataSource::PROJECT_STRUCTURE,
+                // Use architecture and database docs for domain analysis
+                DataSource::knowledge_categories(vec!["architecture", "database"]),
+            ],
         }
     }
 
     fn prompt_template(&self) -> PromptTemplate {
         PromptTemplate {
-            system_prompt: r#"You are a professional software architecture analyst, specializing in identifying domain architecture and modules in projects based on the provided information and research materials"#
+            system_prompt: r#"You are a professional software architecture analyst, specializing in identifying domain architecture and modules in projects based on the provided information and research materials.
+
+You may have access to existing product description, requirements and architecture documentation from external sources.
+If available:
+- Use established business domain terminology and glossaries
+- Align module identification with documented domain boundaries
+- Reference domain-driven design (DDD) concepts from the documentation
+- Validate code organization against documented bounded contexts
+- Ensure consistency between business language and code structure"#
                 .to_string(),
 
             opening_instruction: "Based on the following research materials, conduct a high-level architecture analysis:".to_string(),
@@ -51,7 +63,9 @@ impl StepForwardAgent for DomainModulesDetector {
 - Use a top-down analysis approach, domains first then modules
 - Domain division should reflect functional value, not technical implementation
 - Maintain a reasonable level of abstraction, avoid excessive detail
-- Focus on core business logic and key dependency relationships"#
+- Focus on core business logic and key dependency relationships
+- If external documentation is provided, use consistent domain terminology
+- Identify any misalignment between documented domains and code structure"#
                 .to_string(),
 
             llm_call_mode: LLMCallMode::Extract,
