@@ -61,7 +61,7 @@ impl DataSource {
         scope: MemoryScope::PREPROCESS,
         key: ScopedKeys::ORIGINAL_DOCUMENT,
     };
-    
+
     /// Create a data source for specific knowledge categories
     pub fn knowledge_categories(categories: Vec<&str>) -> DataSource {
         DataSource::ExternalKnowledgeByCategory(categories.iter().map(|s| s.to_string()).collect())
@@ -253,6 +253,44 @@ impl DataFormatter {
         content
     }
 
+    /// Emergency content truncation when compression fails
+    fn emergency_truncate(&self, content: &str, content_type: &str) -> Result<String> {
+        // For code insights, truncate more aggressively
+        let truncate_ratio = if content_type == "Code Insights" {
+            0.2 // Keep only 20% of code insights
+        } else {
+            0.4 // Keep 40% of other content
+        };
+
+        let target_len = (content.len() as f64 * truncate_ratio) as usize;
+
+        if content.len() <= target_len + 100 {
+            // Content is already small enough
+            return Ok(content.to_string());
+        }
+
+        // Find a good truncation point at the end of a line
+        let truncated: String = content
+            .chars()
+            .take(target_len)
+            .collect();
+
+        // Find the last newline character to avoid breaking mid-line
+        let safe_end = truncated.rfind('\n').unwrap_or(target_len);
+        let result = if safe_end > 100 {
+            format!("{}\n\n[Content truncated due to size limitations]",
+                    &truncated[..safe_end])
+        } else {
+            format!("{}\n\n[Content truncated due to size limitations]",
+                    truncated)
+        };
+
+        println!("   🚨 Emergency truncation for [{}]: reduced from {} to {} characters",
+                content_type, content.len(), result.len());
+
+        Ok(result)
+    }
+
     /// Get dependency type priority
     fn get_dependency_priority(
         &self,
@@ -290,15 +328,22 @@ impl DataFormatter {
         content_type: &str,
     ) -> Result<String> {
         if let Some(compressor) = &self.prompt_compressor {
-            let compression_result = compressor
+            match compressor
                 .compress_if_needed(context, content, content_type)
-                .await?;
-
-            if compression_result.was_compressed {
-                println!("   📊 {}", compression_result.compression_summary);
+                .await
+            {
+                Ok(compression_result) => {
+                    if compression_result.was_compressed {
+                        println!("   📊 {}", compression_result.compression_summary);
+                    }
+                    Ok(compression_result.compressed_content)
+                }
+                Err(e) => {
+                    // If compression fails, try to truncate content to a reasonable size
+                    println!("   ⚠️ Compression failed for [{}]: {}, attempting emergency truncation", content_type, e);
+                    self.emergency_truncate(content, content_type)
+                }
             }
-
-            Ok(compression_result.compressed_content)
         } else {
             Ok(content.to_string())
         }
@@ -543,15 +588,15 @@ pub trait StepForwardAgent: Send + Sync {
 
         // 4. Build prompt using standard template and adjust according to target language
         let template = self.prompt_template();
-        
+
         // Add language instruction based on configured target language
         let language_instruction = context.config.target_language.prompt_instruction();
 
         let prompt_builder = GeneratorPromptBuilder::new(template.clone());
-        
+
         // Get custom prompt content
         let custom_content = self.provide_custom_prompt_content(context).await?;
-        
+
         // Check if timestamp needs to be included
         let include_timestamp = self.should_include_timestamp();
 
@@ -569,7 +614,7 @@ pub trait StepForwardAgent: Send + Sync {
         } else {
             agent_type_value.clone()
         };
-        
+
         let params = AgentExecuteParams {
             prompt_sys: system_prompt,
             prompt_user: user_prompt,

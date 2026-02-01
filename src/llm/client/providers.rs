@@ -95,11 +95,11 @@ impl ProviderClient {
                     .into_agent_builder()
                     .preamble(system_prompt)
                     .max_tokens(config.max_tokens.into());
-                
+
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
                 }
-                
+
                 let agent = builder.build();
                 ProviderAgent::OpenAI(agent)
             }
@@ -107,11 +107,11 @@ impl ProviderClient {
                 let mut builder = client
                     .agent(model)
                     .preamble(system_prompt);
-                
+
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
                 }
-                
+
                 let agent = builder.build();
                 ProviderAgent::Moonshot(agent)
             }
@@ -119,11 +119,11 @@ impl ProviderClient {
                 let mut builder = client
                     .agent(model)
                     .preamble(system_prompt);
-                
+
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
                 }
-                
+
                 let agent = builder.build();
                 ProviderAgent::DeepSeek(agent)
             }
@@ -131,11 +131,11 @@ impl ProviderClient {
                 let mut builder = client
                     .agent(model)
                     .preamble(system_prompt);
-                
+
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
                 }
-                
+
                 let agent = builder.build();
                 ProviderAgent::Mistral(agent)
             }
@@ -143,11 +143,11 @@ impl ProviderClient {
                 let mut builder = client
                     .agent(model)
                     .preamble(system_prompt);
-                
+
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
                 }
-                
+
                 let agent = builder.build();
                 ProviderAgent::OpenRouter(agent)
             }
@@ -156,11 +156,11 @@ impl ProviderClient {
                     .agent(model)
                     .preamble(system_prompt)
                     .max_tokens(config.max_tokens.into());
-                
+
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
                 }
-                
+
                 let agent = builder.build();
                 ProviderAgent::Anthropic(agent)
             }
@@ -172,11 +172,11 @@ impl ProviderClient {
                     .agent(model)
                     .preamble(system_prompt)
                     .max_tokens(config.max_tokens.into());
-                
+
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
                 }
-                
+
                 let agent = builder
                     .additional_params(serde_json::to_value(cfg).unwrap())
                     .build();
@@ -187,11 +187,11 @@ impl ProviderClient {
                     .agent(model)
                     .preamble(system_prompt)
                     .max_tokens(config.max_tokens.into());
-                
+
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
                 }
-                
+
                 let agent = builder.build();
                 ProviderAgent::Ollama(agent)
             }
@@ -217,11 +217,11 @@ impl ProviderClient {
                     .into_agent_builder()
                     .preamble(system_prompt)
                     .max_tokens(config.max_tokens.into());
-                
+
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
                 }
-                
+
                 let agent = builder
                     .tool(file_explorer.clone())
                     .tool(file_reader.clone())
@@ -234,11 +234,11 @@ impl ProviderClient {
                     .agent(model)
                     .preamble(system_prompt)
                     .max_tokens(config.max_tokens.into());
-                
+
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
                 }
-                
+
                 let agent = builder
                     .tool(file_explorer.clone())
                     .tool(file_reader.clone())
@@ -251,11 +251,11 @@ impl ProviderClient {
                     .agent(model)
                     .preamble(system_prompt)
                     .max_tokens(config.max_tokens.into());
-                
+
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
                 }
-                
+
                 let agent = builder
                     .tool(file_explorer.clone())
                     .tool(file_reader.clone())
@@ -267,11 +267,11 @@ impl ProviderClient {
                 let mut builder = client
                     .agent(model)
                     .preamble(system_prompt);
-                
+
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
                 }
-                
+
                 let agent = builder
                     .tool(file_explorer.clone())
                     .tool(file_reader.clone())
@@ -283,11 +283,11 @@ impl ProviderClient {
                 let mut builder = client
                     .agent(model)
                     .preamble(system_prompt);
-                
+
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
                 }
-                
+
                 let agent = builder
                     .tool(file_explorer.clone())
                     .tool(file_reader.clone())
@@ -300,11 +300,11 @@ impl ProviderClient {
                     .agent(model)
                     .preamble(system_prompt)
                     .max_tokens(config.max_tokens.into());
-                
+
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
                 }
-                
+
                 let agent = builder
                     .tool(file_explorer.clone())
                     .tool(file_reader.clone())
@@ -320,11 +320,11 @@ impl ProviderClient {
                     .agent(model)
                     .preamble(system_prompt)
                     .max_tokens(config.max_tokens.into());
-                
+
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
                 }
-                
+
                 let agent = builder
                     .tool(file_explorer.clone())
                     .tool(file_reader.clone())
@@ -338,11 +338,11 @@ impl ProviderClient {
                     .agent(model)
                     .preamble(system_prompt)
                     .max_tokens(config.max_tokens.into());
-                
+
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
                 }
-                
+
                 let agent = builder
                     .tool(file_explorer.clone())
                     .tool(file_reader.clone())
@@ -430,11 +430,11 @@ impl ProviderClient {
                     .agent(model)
                     .preamble(system_prompt)
                     .max_tokens(config.max_tokens.into());
-                
+
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
                 }
-                
+
                 let agent = builder.build();
 
                 // Wrap with OllamaExtractorWrapper to handle structured output

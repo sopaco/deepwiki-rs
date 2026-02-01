@@ -44,8 +44,8 @@ pub enum PreservePattern {
 impl Default for CompressionConfig {
     fn default() -> Self {
         Self {
-            compression_threshold: 65536, // 64K Input tokens, prevent insufficient output tokens and quadratic time explosion in LLM prefill stage
-            target_compression_ratio: 0.7, // Compress to 70%
+            compression_threshold: 65536, // Reduced to 64K to prevent token overflow
+            target_compression_ratio: 0.5, // More aggressive compression to 50%
             enabled: true,
             preserve_patterns: vec![
                 PreservePattern::FunctionSignatures,
@@ -166,12 +166,20 @@ impl PromptCompressor {
 
         let params = AgentExecuteParams {
             prompt_sys:
-                "You are a professional content simplification expert, skilled at extracting and preserving key information while significantly reducing content length."
+                "You are a professional content simplification expert, skilled at extracting and preserving key information while significantly reducing content length. Focus on preserving only the most critical information and eliminate all redundancies."
                     .to_string(),
             prompt_user: compression_prompt,
             cache_scope: format!("prompt_compression_{}", content_type),
             log_tag: format!("Context-Compression-{}", content_type),
         };
+
+        // Check if content is already too large for compression
+        if original_estimation.estimated_tokens > 150000 {
+            return Err(anyhow::anyhow!(
+                "Content too large for compression ({} tokens), maximum supported is 150000 tokens",
+                original_estimation.estimated_tokens
+            ));
+        }
 
         let compressed_content = prompt(context, params).await?;
         let compressed_estimation = self.token_estimator.estimate_tokens(&compressed_content);
@@ -213,17 +221,18 @@ impl PromptCompressor {
         format!(
             r#"Please intelligently optimize the following {} content to reduce word count, with the goal of compressing the content to no more than {} tokens.
 
-## Output Requirements:
-1. Preserve all key information and core logic
-2. Remove redundant descriptions and duplicate information
-3. Use more concise expressions
-4. {}
+## CRITICAL Requirements:
+1. Preserve ONLY the most essential information and core logic
+2. Remove ALL redundant descriptions, verbose explanations, and duplicate information
+3. Use extremely concise expressions with bullet points when possible
+4. Eliminate unnecessary examples and verbose explanations
+5. {}
 
 ## Original Content:
 {}
 
 ## Simplified Content:
-Please output the simplified content directly without adding any explanations or notes."#,
+Output only the condensed information, with zero additional comments or explanations."#,
             content_type, target_tokens, preserve_instructions, content
         )
     }

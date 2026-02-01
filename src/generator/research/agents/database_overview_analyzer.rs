@@ -90,8 +90,8 @@ Please return the analysis results in structured JSON format."#
             llm_call_mode: LLMCallMode::Extract,
             formatter_config: FormatterConfig {
                 include_source_code: true, // Database analysis requires viewing SQL source code
-                code_insights_limit: 200,  // Increase limit to capture all database objects
-                only_directories_when_files_more_than: Some(500),
+                code_insights_limit: 50,   // Reduced limit to prevent token overflow
+                only_directories_when_files_more_than: Some(300),
                 ..FormatterConfig::default()
             },
         }
@@ -149,9 +149,15 @@ impl DatabaseOverviewAnalyzer {
             .ok_or_else(|| anyhow!("CODE_INSIGHTS not found in PREPROCESS memory"))?;
 
         // Filter database-related code
-        let database_insights: Vec<CodeInsight> = all_insights
+        let mut database_insights: Vec<CodeInsight> = all_insights
             .into_iter()
             .filter(|insight| {
+                // First check file size to exclude extremely large files
+                let source_len = insight.code_dossier.source_summary.len();
+                if source_len > 50000 {
+                    return false; // Skip files with source summaries larger than 50KB
+                }
+
                 // Include files with Database purpose
                 matches!(insight.code_dossier.code_purpose, CodePurpose::Database)
                     // Also include DAO files as they often reflect database structure
@@ -162,6 +168,21 @@ impl DatabaseOverviewAnalyzer {
             })
             .collect();
 
+        // Truncate source summaries for remaining files to prevent token overflow
+        for insight in &mut database_insights {
+            let source_len = insight.code_dossier.source_summary.len();
+            if source_len > 10000 {
+                // If source summary is very large, truncate it to first 10KB
+                let truncated: String = insight.code_dossier.source_summary.chars().take(10000).collect();
+                insight.code_dossier.source_summary = truncated;
+
+                // Add a note that the content was truncated
+                if !insight.code_dossier.source_summary.is_empty() {
+                    insight.code_dossier.source_summary.push_str("\n\n[Content truncated for analysis]");
+                }
+            }
+        }
+
         // Sort by importance
         let mut sorted_insights = database_insights;
         sorted_insights.sort_by(|a, b| {
@@ -171,8 +192,8 @@ impl DatabaseOverviewAnalyzer {
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
 
-        // Take up to 200 most important
-        sorted_insights.truncate(200);
+        // Take up to 50 most important to prevent token overflow
+        sorted_insights.truncate(50);
 
         // Group by type and count
         let mut sqlproj_count = 0;
@@ -213,7 +234,7 @@ impl DatabaseOverviewAnalyzer {
 
         for insight in insights {
             let path = insight.code_dossier.file_path.to_string_lossy().to_lowercase();
-            
+
             if path.ends_with(".sqlproj") {
                 projects.push(insight);
             } else if path.ends_with(".sql") {
@@ -295,6 +316,37 @@ impl DatabaseOverviewAnalyzer {
         content
     }
 
+    /// Determine appropriate language identifier based on file type
+    fn determine_code_language(&self, file_path: &std::path::Path) -> &str {
+        let path = file_path.to_string_lossy();
+
+        if path.ends_with(".sql") || path.ends_with(".sqlproj") {
+            "sql"
+        } else if path.ends_with(".java") {
+            "java"
+        } else if path.ends_with(".py") || path.ends_with(".pyw") {
+            "python"
+        } else if path.ends_with(".cs") {
+            "csharp"
+        } else if path.ends_with(".js") {
+            "javascript"
+        } else if path.ends_with(".ts") {
+            "typescript"
+        } else if path.ends_with(".go") {
+            "go"
+        } else if path.ends_with(".rs") {
+            "rust"
+        } else if path.ends_with(".xml") || path.ends_with(".config") {
+            "xml"
+        } else if path.ends_with(".json") {
+            "json"
+        } else if path.ends_with(".yaml") || path.ends_with(".yml") {
+            "yaml"
+        } else {
+            "source file"
+        }
+    }
+
     /// Add single insight item to content
     fn add_insight_item(&self, content: &mut String, insight: &CodeInsight) {
         content.push_str(&format!(
@@ -302,33 +354,33 @@ impl DatabaseOverviewAnalyzer {
             insight.code_dossier.name,
             insight.code_dossier.file_path.display()
         ));
-        
+
         if let Some(desc) = &insight.code_dossier.description {
             content.push_str(&format!("  - Description: {}\n", desc));
         }
-        
+
         // Add interface information for SQL objects
         if !insight.code_dossier.interfaces.is_empty() {
             content.push_str("  - SQL Objects: ");
             content.push_str(&insight.code_dossier.interfaces.join(", "));
             content.push_str("\n");
         }
-        
-        // Add source summary if available
-        if !insight.code_dossier.source_summary.is_empty() {
+
+        // Add source summary if available (only for high-importance files)
+        if !insight.code_dossier.source_summary.is_empty() && insight.code_dossier.importance_score > 0.5 {
             content.push_str("  - Source Preview:\n");
-            content.push_str("    ```sql\n");
-            // Limit to first 500 chars
-            let preview: String = insight.code_dossier.source_summary.chars().take(500).collect();
-            for line in preview.lines().take(15) {
+            content.push_str(&format!("    ```{}\n", self.determine_code_language(&insight.code_dossier.file_path)));
+            // Limit to first 150 chars to reduce token usage
+            let preview: String = insight.code_dossier.source_summary.chars().take(150).collect();
+            for line in preview.lines().take(8) {
                 content.push_str(&format!("    {}\n", line));
             }
-            if insight.code_dossier.source_summary.len() > 500 {
+            if insight.code_dossier.source_summary.len() > 150 {
                 content.push_str("    ...\n");
             }
             content.push_str("    ```\n");
         }
-        
+
         content.push_str("\n");
     }
 }
