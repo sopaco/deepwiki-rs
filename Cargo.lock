@@ -312,7 +312,7 @@ dependencies = [
 
 [[package]]
 name = "deepwiki-rs"
-version = "1.2.8"
+version = "1.2.9"
 dependencies = [
  "anyhow",
  "async-trait",
