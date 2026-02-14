@@ -47,7 +47,7 @@ where
                 Err(e) => {
                     last_error = Some(format!("{:#}", e));
                     if attempt < self.max_retries {
-                        tokio::time::sleep(tokio::time::Duration::from_millis(2000)).await;
+                        tokio::time::sleep(tokio::time::Duration::from_millis(3000)).await;
                     }
                 }
             }

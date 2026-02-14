@@ -94,8 +94,7 @@ impl Tool for AgentToolTime {
     async fn call(&self, args: Self::Args) -> Result<Self::Output, Self::Error> {
         println!("   🔧 tool called...time@{:?}", args);
 
-        #[cfg(debug_assertions)]
-        tokio::time::sleep(Duration::from_secs(2)).await;
+        tokio::time::sleep(Duration::from_secs(1)).await;
 
         self.get_current_time(&args)
             .await
