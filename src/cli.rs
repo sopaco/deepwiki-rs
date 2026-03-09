@@ -94,6 +94,18 @@ pub struct Args {
     /// Force regeneration (clear cache)
     #[arg(long)]
     pub force_regenerate: bool,
+
+    /// Maximum boundary insights to analyze (reduces timeout risk)
+    #[arg(long)]
+    pub boundary_max_insights: Option<usize>,
+
+    /// Code insights limit for boundary analysis
+    #[arg(long)]
+    pub boundary_code_limit: Option<usize>,
+
+    /// Include source code in boundary analysis (default: true)
+    #[arg(long)]
+    pub boundary_include_source: Option<bool>,
 }
 
 /// CLI subcommands
@@ -202,6 +214,18 @@ impl Args {
         if self.no_cache {
             config.cache.enabled = false;
         }
+
+        // Boundary analysis configuration overrides
+        if let Some(max_insights) = self.boundary_max_insights {
+            config.boundary_analysis.max_boundary_insights = max_insights;
+        }
+        if let Some(code_limit) = self.boundary_code_limit {
+            config.boundary_analysis.code_insights_limit = code_limit;
+        }
+        if let Some(include_source) = self.boundary_include_source {
+            config.boundary_analysis.include_source_code = include_source;
+        }
+
 
         config
     }

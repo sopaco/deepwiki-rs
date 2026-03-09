@@ -190,6 +190,52 @@ cache_dir = ".litho/cache"
 expire_hours = 8760
 
 # ============================================================================
+# Boundary Analysis Configuration
+# ============================================================================
+# Controls how boundary interfaces (CLI, API, Router) are analyzed
+# Reducing these values can significantly speed up processing and reduce timeout risk
+
+[boundary_analysis]
+# Maximum number of boundary code insights to analyze
+# Lower values = faster processing, less risk of timeout
+# Higher values = more comprehensive analysis
+# Default: 50, Recommended for large projects: 15-20
+max_boundary_insights = 50
+
+# Code insights limit for formatting in prompts
+# Controls the detail level in boundary analysis
+# Default: 100, Recommended for large projects: 25-30
+code_insights_limit = 100
+
+# Whether to include full source code in boundary analysis
+# Setting to false significantly reduces token usage and processing time
+# Default: true, Recommended for large projects: false
+include_source_code = true
+
+# Only show directories when file count exceeds this threshold
+# Helps avoid information overload for large codebases
+# Default: 500, Recommended for large projects: 100
+only_directories_when_files_more_than = 500
+
+# === Quick Fix for 504 Gateway Timeout Errors ===
+# If you're experiencing timeout errors during boundary analysis:
+# 1. Set max_boundary_insights = 15
+#    (Reduces the number of boundary code fragments analyzed)
+# 2. Set code_insights_limit = 25
+#    (Reduces detail level in prompts)
+# 3. Set include_source_code = false
+#    (Excludes full source code, only includes structure info)
+# 4. Set only_directories_when_files_more_than = 100
+#    (Simplifies large directory structures)
+#
+# Example configuration for large projects or slow LLM providers:
+# [boundary_analysis]
+# max_boundary_insights = 15
+# code_insights_limit = 25
+# include_source_code = false
+# only_directories_when_files_more_than = 100
+
+# ============================================================================
 # Knowledge Configuration (External Documentation Sources)
 # ============================================================================
 # Integrates existing documentation from local files into the

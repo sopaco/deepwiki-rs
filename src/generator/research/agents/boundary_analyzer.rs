@@ -155,7 +155,7 @@ impl BoundaryAnalyzer {
             })
             .collect();
 
-        // Sort by importance, take top 50 most important
+        // Sort by importance
         let mut sorted_insights = boundary_insights;
         sorted_insights.sort_by(|a, b| {
             b.code_dossier
@@ -163,7 +163,10 @@ impl BoundaryAnalyzer {
                 .partial_cmp(&a.code_dossier.importance_score)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
-        sorted_insights.truncate(50);
+        
+        // Use configuration value for max boundary insights
+        let max_insights = context.config.boundary_analysis.max_boundary_insights;
+        sorted_insights.truncate(max_insights);
 
         // Group by type and count
         let mut entry_count = 0;
