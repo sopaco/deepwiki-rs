@@ -129,6 +129,10 @@ pub struct Config {
 
     /// Architecture meta description file path
     pub architecture_meta_path: Option<PathBuf>,
+
+    /// Boundary analysis configuration
+    #[serde(default)]
+    pub boundary_analysis: BoundaryAnalysisConfig,
 }
 
 /// LLM model configuration
@@ -181,6 +185,46 @@ pub struct CacheConfig {
 
     /// Cache expiration time (hours)
     pub expire_hours: u64,
+}
+
+/// Boundary analysis configuration
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct BoundaryAnalysisConfig {
+    /// Maximum number of boundary code insights to analyze
+    /// Reducing this value can significantly speed up processing and reduce timeout risk
+    /// Default: 50
+    #[serde(default = "default_max_boundary_insights")]
+    pub max_boundary_insights: usize,
+
+    /// Code insights limit for formatting
+    /// Controls how many code insights are included in the prompt
+    /// Default: 100
+    #[serde(default = "default_code_insights_limit")]
+    pub code_insights_limit: usize,
+
+    /// Whether to include source code in boundary analysis
+    /// Setting to false significantly reduces token usage
+    /// Default: true
+    #[serde(default = "default_false")]
+    pub include_source_code: bool,
+
+    /// Only show directories when file count exceeds this threshold
+    /// Helps avoid information overload for large codebases
+    /// Default: 500
+    #[serde(default = "default_files_threshold")]
+    pub only_directories_when_files_more_than: Option<usize>,
+}
+
+fn default_max_boundary_insights() -> usize {
+    15  // Reduced default to avoid 504 timeouts on large codebases
+}
+
+fn default_code_insights_limit() -> usize {
+    25  // Reduced default to balance performance and quality
+}
+
+fn default_files_threshold() -> Option<usize> {
+    Some(100)  // Reduced threshold for better performance
 }
 
 /// Knowledge configuration for external documentation sources
@@ -293,6 +337,9 @@ pub struct LocalDocsConfig {
 
 fn default_true() -> bool {
     true
+}
+fn default_false() -> bool {
+    false
 }
 
 impl Config {
@@ -499,7 +546,9 @@ impl Config {
                         // Try to extract <AssemblyName> or <PackageId> from XML
                         for line in content.lines() {
                             let line = line.trim();
-                            if line.starts_with("<AssemblyName>") && line.ends_with("</AssemblyName>") {
+                            if line.starts_with("<AssemblyName>")
+                                && line.ends_with("</AssemblyName>")
+                            {
                                 let name = line
                                     .trim_start_matches("<AssemblyName>")
                                     .trim_end_matches("</AssemblyName>");
@@ -632,6 +681,7 @@ impl Default for Config {
             llm: LLMConfig::default(),
             cache: CacheConfig::default(),
             knowledge: KnowledgeConfig::default(),
+            boundary_analysis: BoundaryAnalysisConfig::default(),
         }
     }
 }
@@ -662,5 +712,31 @@ impl Default for CacheConfig {
             cache_dir: PathBuf::from(".litho/cache"),
             expire_hours: 8760,
         }
+    }
+}
+
+impl Default for BoundaryAnalysisConfig {
+    fn default() -> Self {
+        Self {
+            max_boundary_insights: default_max_boundary_insights(),
+            code_insights_limit: default_code_insights_limit(),
+            include_source_code: default_false(),
+            only_directories_when_files_more_than: default_files_threshold(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_boundary_analysis_default_values() {
+        let config = BoundaryAnalysisConfig::default();
+        
+        assert_eq!(config.max_boundary_insights, 15);
+        assert_eq!(config.code_insights_limit, 25);
+        assert_eq!(config.include_source_code, false);
+        assert_eq!(config.only_directories_when_files_more_than, Some(100));
     }
 }

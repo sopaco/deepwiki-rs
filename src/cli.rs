@@ -94,6 +94,22 @@ pub struct Args {
     /// Force regeneration (clear cache)
     #[arg(long)]
     pub force_regenerate: bool,
+
+    /// Maximum boundary insights to analyze (reduces timeout risk)
+    #[arg(long)]
+    pub boundary_max_insights: Option<usize>,
+
+    /// Code insights limit for boundary analysis
+    #[arg(long)]
+    pub boundary_code_limit: Option<usize>,
+
+    /// Include source code in boundary analysis (default: true)
+    #[arg(long)]
+    pub boundary_include_source: Option<bool>,
+
+    /// Show only directories when files exceed this count
+    #[arg(long)]
+    pub boundary_only_directories_when_files_more_than: Option<usize>,
 }
 
 /// CLI subcommands
@@ -124,7 +140,7 @@ impl Args {
         let mut config = if let Some(config_path) = &self.config {
             // If config file path is explicitly specified, load from that path
             let msg = target_lang.msg_config_read_error().replace("{:?}", &format!("{:?}", config_path));
-            return Config::from_file(config_path).expect(&msg);
+            Config::from_file(config_path).expect(&msg)
         } else {
             // If no config file is explicitly specified, try loading from default location
             let default_config_path = std::env::current_dir()
@@ -133,7 +149,7 @@ impl Args {
 
             if default_config_path.exists() {
                 let msg = target_lang.msg_config_read_error().replace("{:?}", &format!("{:?}", default_config_path));
-                return Config::from_file(&default_config_path).expect(&msg);
+                Config::from_file(&default_config_path).expect(&msg)
             } else {
                 // Default config file doesn't exist, use default values
                 Config::default()
@@ -202,6 +218,21 @@ impl Args {
         if self.no_cache {
             config.cache.enabled = false;
         }
+
+        // Boundary analysis configuration overrides
+        if let Some(max_insights) = self.boundary_max_insights {
+            config.boundary_analysis.max_boundary_insights = max_insights;
+        }
+        if let Some(code_limit) = self.boundary_code_limit {
+            config.boundary_analysis.code_insights_limit = code_limit;
+        }
+        if let Some(include_source) = self.boundary_include_source {
+            config.boundary_analysis.include_source_code = include_source;
+        }
+        if let Some(only_dirs_threshold) = self.boundary_only_directories_when_files_more_than {
+            config.boundary_analysis.only_directories_when_files_more_than = Some(only_dirs_threshold);
+        }
+
 
         config
     }

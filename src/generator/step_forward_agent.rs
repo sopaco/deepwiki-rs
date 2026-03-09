@@ -111,13 +111,13 @@ pub struct FormatterConfig {
 impl Default for FormatterConfig {
     fn default() -> Self {
         Self {
-            code_insights_limit: 50,
-            include_source_code: false,
+            code_insights_limit: 25,  // Reduced from 50 to avoid 504 timeouts on large codebases
+            include_source_code: false,  // Disabled to reduce token usage
             dependency_limit: 50,
             readme_truncate_length: Some(16384),
             enable_compression: true,
             compression_config: CompressionConfig::default(),
-            only_directories_when_files_more_than: None,
+            only_directories_when_files_more_than: Some(100),  // Show only directories when files > 100
         }
     }
 }

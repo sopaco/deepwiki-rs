@@ -83,12 +83,8 @@ Please return the analysis results in structured JSON format."#
                 .to_string(),
 
             llm_call_mode: LLMCallMode::Extract,
-            formatter_config: FormatterConfig {
-                include_source_code: true, // Boundary analysis requires viewing source code details
-                code_insights_limit: 100,  // Increase code insights limit to ensure no boundary code is missed
-                only_directories_when_files_more_than: Some(500), // Appropriate limit to avoid information overload
-                ..FormatterConfig::default()
-            },
+
+            formatter_config: FormatterConfig::default(),
         }
     }
 
@@ -155,7 +151,7 @@ impl BoundaryAnalyzer {
             })
             .collect();
 
-        // Sort by importance, take top 50 most important
+        // Sort by importance
         let mut sorted_insights = boundary_insights;
         sorted_insights.sort_by(|a, b| {
             b.code_dossier
@@ -163,7 +159,10 @@ impl BoundaryAnalyzer {
                 .partial_cmp(&a.code_dossier.importance_score)
                 .unwrap_or(std::cmp::Ordering::Equal)
         });
-        sorted_insights.truncate(50);
+        
+        // Use configuration value for max boundary insights
+        let max_insights = context.config.boundary_analysis.max_boundary_insights;
+        sorted_insights.truncate(max_insights);
 
         // Group by type and count
         let mut entry_count = 0;
