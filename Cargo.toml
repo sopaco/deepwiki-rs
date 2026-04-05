@@ -12,7 +12,7 @@ repository = "https://github.com/sopaco/deepwiki-rs"
 rig-core = "0.34"
 
 # 网络
-reqwest = { version = "0.12" }
+reqwest = { version = "0.12", features = ["json"] }
 
 # 异步运行时
 tokio = { version = "1.47", features = ["full"] }

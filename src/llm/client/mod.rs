@@ -9,6 +9,7 @@ use crate::{config::Config, llm::client::utils::evaluate_befitting_model};
 
 mod agent_builder;
 mod ollama_extractor;
+mod openai_compatible_extractor;
 mod providers;
 mod react;
 mod react_executor;

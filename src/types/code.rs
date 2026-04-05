@@ -291,6 +291,31 @@ pub struct CodeInsight {
     pub complexity_metrics: CodeComplexity,
 }
 
+/// Simplified LLM output structure for code insight
+/// Only contains fields that need LLM enhancement, reducing JSON schema complexity
+#[derive(Debug, Serialize, Deserialize, Clone, Default, JsonSchema)]
+#[serde(default)]
+pub struct CodeInsightLLMOutput {
+    /// Detailed description of the code component
+    #[serde(default, deserialize_with = "deserialize_string_lenient")]
+    pub detailed_description: String,
+    /// Core responsibilities (3-5 items recommended)
+    #[serde(default, deserialize_with = "deserialize_vec_string_lenient")]
+    pub responsibilities: Vec<String>,
+}
+
+impl CodeInsight {
+    /// Merge LLM output into this CodeInsight
+    pub fn merge_llm_output(&mut self, llm_output: CodeInsightLLMOutput) {
+        if !llm_output.detailed_description.is_empty() {
+            self.detailed_description = llm_output.detailed_description;
+        }
+        if !llm_output.responsibilities.is_empty() {
+            self.responsibilities = llm_output.responsibilities;
+        }
+    }
+}
+
 /// Interface information
 #[derive(Debug, Serialize, Deserialize, Clone, Default, JsonSchema)]
 #[serde(default)]

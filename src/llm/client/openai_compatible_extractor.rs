@@ -1,7 +1,7 @@
-//! Ollama Structured Output Wrapper
+//! OpenAI Compatible Structured Output Wrapper
 //!
-//! Ollama does not support native structured output (unlike OpenAI), so this module
-//! provides a wrapper to parse JSON from Ollama's text responses and validate against schemas
+//! Some OpenAI-compatible APIs return responses that don't match rig's expected format.
+//! This module provides a fallback mechanism using direct HTTP calls.
 
 use anyhow::{Context, Result};
 use regex::Regex;
@@ -15,31 +15,34 @@ use std::sync::LazyLock;
 static JSON_CODE_BLOCK_REGEX: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"```(?:json)?\s*(\{[\s\S]*?\})\s*```").unwrap());
 
-/// Ollama structured output extractor
-pub struct OllamaExtractorWrapper<T> {
-    agent: Agent<rig::providers::ollama::CompletionModel>,
+/// OpenAI-compatible structured output extractor with HTTP fallback
+pub struct OpenAICompatibleExtractorWrapper<T> {
+    agent: Agent<rig::providers::openai::completion::CompletionModel>,
     max_retries: u32,
     base_url: String,
     model: String,
+    api_key: String,
     _phantom: std::marker::PhantomData<T>,
 }
 
-impl<T> OllamaExtractorWrapper<T>
+impl<T> OpenAICompatibleExtractorWrapper<T>
 where
     T: JsonSchema + Serialize + for<'de> Deserialize<'de>,
 {
-    /// Create a new Ollama extractor with explicit configuration
-    pub fn with_config(
-        agent: Agent<rig::providers::ollama::CompletionModel>,
+    /// Create a new OpenAI-compatible extractor with configuration
+    pub fn new(
+        agent: Agent<rig::providers::openai::completion::CompletionModel>,
         max_retries: u32,
         base_url: String,
         model: String,
+        api_key: String,
     ) -> Self {
         Self {
             agent,
             max_retries,
             base_url,
             model,
+            api_key,
             _phantom: std::marker::PhantomData,
         }
     }
@@ -57,7 +60,9 @@ where
                 Err(e) => {
                     let error_msg = format!("{:#}", e);
                     // Check if it's an API response parsing error
-                    if error_msg.contains("ApiResponse") || error_msg.contains("untagged enum") {
+                    if error_msg.contains("ApiResponse") 
+                        || error_msg.contains("untagged enum")
+                        || error_msg.contains("JsonError") {
                         // Try direct HTTP call as fallback
                         match self.try_extract_via_http(&enhanced_prompt, attempt as usize).await {
                             Ok(result) => return Ok(result),
@@ -88,42 +93,57 @@ where
             .agent
             .prompt(prompt)
             .await
-            .context("Failed to get response from Ollama via rig")?;
+            .context("Failed to get response via rig")?;
 
         self.parse_and_validate(&response, attempt)
     }
 
-    /// Try extraction via direct HTTP call to Ollama API
+    /// Try extraction via direct HTTP call to OpenAI-compatible API
     async fn try_extract_via_http(&self, prompt: &str, attempt: usize) -> Result<T> {
         let client = reqwest::Client::new();
 
+        // Build OpenAI-compatible request
         let request_body = serde_json::json!({
             "model": self.model,
-            "prompt": prompt,
-            "stream": false
+            "messages": [
+                {
+                    "role": "user",
+                    "content": prompt
+                }
+            ],
+            "temperature": 0.7,
+            "max_tokens": 4096
         });
 
         let response = client
-            .post(format!("{}/api/generate", self.base_url))
+            .post(format!("{}/chat/completions", self.base_url.trim_end_matches('/')))
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("Content-Type", "application/json")
             .json(&request_body)
             .timeout(std::time::Duration::from_secs(120))
             .send()
             .await
-            .context("Failed to send HTTP request to Ollama")?;
+            .context("Failed to send HTTP request to OpenAI-compatible API")?;
 
         if !response.status().is_success() {
-            anyhow::bail!("Ollama HTTP error: {}", response.status());
+            let status = response.status();
+            let body = response.text().await.unwrap_or_default();
+            anyhow::bail!("OpenAI-compatible API HTTP error {}: {}", status, body);
         }
 
         let json: Value = response
             .json()
             .await
-            .context("Failed to parse Ollama HTTP response")?;
+            .context("Failed to parse OpenAI-compatible API HTTP response")?;
 
+        // Extract content from OpenAI response format
         let response_text = json
-            .get("response")
-            .and_then(|v| v.as_str())
-            .ok_or_else(|| anyhow::anyhow!("No 'response' field in Ollama HTTP response"))?;
+            .get("choices")
+            .and_then(|c| c.get(0))
+            .and_then(|c| c.get("message"))
+            .and_then(|m| m.get("content"))
+            .and_then(|c| c.as_str())
+            .ok_or_else(|| anyhow::anyhow!("Invalid OpenAI API response format"))?;
 
         self.parse_and_validate(response_text, attempt)
     }
@@ -132,7 +152,7 @@ where
     fn parse_and_validate(&self, response: &str, attempt: usize) -> Result<T> {
         let parsed = self
             .parse_json_response(response, attempt)
-            .context("Failed to parse JSON from Ollama response")?;
+            .context("Failed to parse JSON from response")?;
 
         self.validate_json(&parsed)?;
 
@@ -201,7 +221,7 @@ where
         serde_json::from_str::<Value>(&cleaned).with_context(|| {
             let preview = response.chars().take(200).collect::<String>();
             format!(
-                "Failed to parse JSON from Ollama response (attempt {}). Response preview: {}",
+                "Failed to parse JSON from response (attempt {}). Response preview: {}",
                 attempt, preview
             )
         })

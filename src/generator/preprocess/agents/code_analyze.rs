@@ -5,7 +5,7 @@ use crate::{
         preprocess::extractors::language_processors::LanguageProcessorManager,
     },
     types::{
-        code::{CodeDossier, CodeInsight},
+        code::{CodeDossier, CodeInsight, CodeInsightLLMOutput},
         project_structure::ProjectStructure,
     },
     utils::{sources::read_dependency_code_source, threads::do_parallel_with_limit},
@@ -47,8 +47,9 @@ impl CodeAnalyze {
                         .await?;
                     static_insight.code_dossier.source_summary = code_clone.source_summary.to_owned();
 
-                    let mut code_insight = match extract::<CodeInsight>(&context_clone, agent_params).await {
-                        Ok(insight) => insight,
+                    // Use simplified LLM output structure for better reliability
+                    let llm_output = match extract::<CodeInsightLLMOutput>(&context_clone, agent_params).await {
+                        Ok(output) => output,
                         Err(e) => {
                             eprintln!(
                                 "⚠️ AI code insight failed for {}: {}. Falling back to static analysis.",
@@ -58,9 +59,10 @@ impl CodeAnalyze {
                         }
                     };
 
-                    // LLM may rewrite source_summary, so exclude it and override here
-                    code_insight.code_dossier.source_summary = code_clone.source_summary.to_owned();
-                    Result::<CodeInsight>::Ok(code_insight)
+                    // Merge LLM output into static insight
+                    static_insight.merge_llm_output(llm_output);
+                    static_insight.code_dossier.source_summary = code_clone.source_summary.to_owned();
+                    Result::<CodeInsight>::Ok(static_insight)
                 })
             })
             .collect();

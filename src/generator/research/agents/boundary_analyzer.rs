@@ -1,5 +1,5 @@
 use crate::generator::preprocess::memory::{MemoryScope, ScopedKeys};
-use crate::generator::research::types::{AgentType, BoundaryAnalysisReport};
+use crate::generator::research::types::AgentType;
 use crate::generator::{
     context::GeneratorContext,
     step_forward_agent::{
@@ -16,7 +16,7 @@ pub struct BoundaryAnalyzer;
 
 #[async_trait]
 impl StepForwardAgent for BoundaryAnalyzer {
-    type Output = BoundaryAnalysisReport;
+    type Output = String; // Changed from BoundaryAnalysisReport to String for text-based output
 
     fn agent_type(&self) -> String {
         AgentType::BoundaryAnalyzer.to_string()
@@ -67,93 +67,67 @@ Focus on:
 - Identify mechanisms and methods for external systems to call this system
 - Provide practical integration guidance and security recommendations
 
-You MUST output strict JSON only (no markdown, no code fences, no prose outside JSON).
-Return exactly this shape:
-{
-  "cli_boundaries": [
-    {
-      "command": "string",
-      "description": "string",
-      "arguments": [
-        {
-          "name": "string",
-          "description": "string",
-          "required": false,
-          "default_value": "string or null",
-          "value_type": "string"
-        }
-      ],
-      "options": [
-        {
-          "name": "string",
-          "short_name": "string or null",
-          "description": "string",
-          "required": false,
-          "default_value": "string or null",
-          "value_type": "string"
-        }
-      ],
-      "examples": ["string"],
-      "source_location": "string"
-    }
-  ],
-  "api_boundaries": [
-    {
-      "endpoint": "string",
-      "method": "string",
-      "description": "string",
-      "request_format": "string or null",
-      "response_format": "string or null",
-      "authentication": "string or null",
-      "source_location": "string"
-    }
-  ],
-  "router_boundaries": [
-    {
-      "path": "string",
-      "description": "string",
-      "source_location": "string",
-      "params": [
-        {
-          "key": "string",
-          "value_type": "string",
-          "description": "string"
-        }
-      ]
-    }
-  ],
-  "integration_suggestions": [
-    {
-      "integration_type": "string",
-      "description": "string",
-      "example_code": "string",
-      "best_practices": ["string"]
-    }
-  ],
-  "confidence_score": 0.0
-}
-
-Rules:
-- Always include all top-level keys.
-- Items in boundary arrays must be objects, never plain strings.
-- Use empty arrays when no boundaries are found.
-- Use empty strings or null for unknown values.
-- confidence_score must be a number from 0.0 to 10.0."#
+## Output Format:
+Generate a comprehensive boundary analysis document in Markdown format."#
                     .to_string(),
 
             opening_instruction: "Analyze the system's boundary interfaces based on the following boundary-related code and project information:".to_string(),
 
             closing_instruction: r#"
+## Document Structure Requirements:
+Please generate a comprehensive boundary analysis document in Markdown format:
+
+```markdown
+# System Boundary Interface Analysis
+
+## 1. CLI Command Line Interfaces
+### 1.1 [Command Name]
+- **Description**: [What this command does]
+- **Arguments**: [List of arguments with types and descriptions]
+- **Options**: [Available flags and options]
+- **Examples**: [Usage examples]
+- **Source**: [File location]
+
+## 2. API Interfaces
+### 2.1 [Endpoint Name]
+- **Method**: [HTTP method]
+- **Endpoint**: [URL path]
+- **Description**: [What this API does]
+- **Request Format**: [Request body structure]
+- **Response Format**: [Response body structure]
+- **Authentication**: [Auth requirements if any]
+- **Source**: [File location]
+
+## 3. Router Routes
+### 3.1 [Route Name]
+- **Path**: [URL path]
+- **Description**: [What this route renders/handles]
+- **Parameters**: [Route parameters]
+- **Source**: [File location]
+
+## 4. Integration Suggestions
+### 4.1 [Integration Type]
+- **Description**: [How to integrate]
+- **Example Code**: [Code example]
+- **Best Practices**: [Recommendations]
+
+## 5. Summary
+- **Total CLI Commands**: [count]
+- **Total API Endpoints**: [count]
+- **Total Router Routes**: [count]
+- **Confidence Level**: [High/Medium/Low]
+```
+
 ## Analysis Requirements:
 - Focus on Entry, Api, Controller, Config, Router type code
 - Extract specific boundary information from code structure and interface definitions
 - Generate practical usage examples and integration suggestions
 - Identify potential security risks and provide mitigation strategies
 - Ensure analysis results are accurate, complete, and practical
-- If a certain type of boundary interface does not exist, the corresponding array can be empty"#
+- If a certain type of boundary interface does not exist, omit that section"#
                 .to_string(),
 
-            llm_call_mode: LLMCallMode::Extract,
+            llm_call_mode: LLMCallMode::Prompt, // Changed from Extract to Prompt
 
             formatter_config: FormatterConfig::default(),
         }
@@ -182,15 +156,11 @@ Rules:
     /// Post-processing - output analysis summary
     fn post_process(
         &self,
-        result: &BoundaryAnalysisReport,
+        _result: &String,
         _context: &GeneratorContext,
     ) -> Result<()> {
-        println!("✅ Boundary interface analysis completed:");
-        println!("   - CLI commands: {} items", result.cli_boundaries.len());
-        println!("   - API interfaces: {} items", result.api_boundaries.len());
-        println!("   - Router routes: {} items", result.router_boundaries.len());
-        println!("   - Integration suggestions: {} items", result.integration_suggestions.len());
-        println!("   - Confidence: {:.1}/10", result.confidence_score);
+        println!("✅ Boundary interface analysis completed");
+        println!("   📄 Generated boundary analysis document in Markdown format");
 
         Ok(())
     }

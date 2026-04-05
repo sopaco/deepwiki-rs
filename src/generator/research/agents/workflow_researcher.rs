@@ -1,5 +1,5 @@
 use crate::generator::research::memory::MemoryScope;
-use crate::generator::research::types::{AgentType, WorkflowReport};
+use crate::generator::research::types::AgentType;
 use crate::generator::step_forward_agent::{
     AgentDataConfig, DataSource, FormatterConfig, LLMCallMode, PromptTemplate, StepForwardAgent,
 };
@@ -8,7 +8,7 @@ use crate::generator::step_forward_agent::{
 pub struct WorkflowResearcher;
 
 impl StepForwardAgent for WorkflowResearcher {
-    type Output = WorkflowReport;
+    type Output = String; // Changed from WorkflowReport to String for text-based output
 
     fn agent_type(&self) -> String {
         AgentType::WorkflowResearcher.to_string()
@@ -39,8 +39,16 @@ impl StepForwardAgent for WorkflowResearcher {
 
     fn prompt_template(&self) -> PromptTemplate {
         PromptTemplate {
-            system_prompt: r#"Analyze the project's core functional workflows, focusing from a functional perspective without being limited to excessive technical details.
+            system_prompt: r#"You are a professional software workflow analyst. Your task is to analyze the project's core functional workflows and generate a comprehensive workflow documentation in Markdown format.
 
+## Mermaid Diagram Safety Rules (MUST follow):
+- Always generate Mermaid that is syntactically valid in strict parsers.
+- Use ASCII-only node IDs: `[A-Za-z0-9_]` (e.g. `StartProcess`, `ValidateInput`).
+- Put localized/human-readable text only inside node labels.
+- Use only standard diagram headers like `graph TD`, `graph LR`, `flowchart TD`, `sequenceDiagram`.
+- Do not use hidden/zero-width characters, smart quotes, or unusual Unicode symbols in Mermaid code.
+
+## External Knowledge Integration:
 You may have access to existing product description, requirements and architecture documentation from external sources.
 If available:
 - Cross-reference code workflows with documented business processes
@@ -49,37 +57,52 @@ If available:
 - Identify any gaps between documented workflows and actual implementation
 - Incorporate business context and rationale from the documentation
 
-You MUST output strict JSON only (no markdown, no code fences, no prose outside JSON).
-Return exactly this shape:
-{
-  "main_workflow": {
-    "name": "string",
-    "description": "string",
-    "flowchart_mermaid": "string"
-  },
-  "other_important_workflows": [
-    {
-      "name": "string",
-      "description": "string",
-      "flowchart_mermaid": "string"
-    }
-  ]
-}
+## Output Format:
+Generate a Markdown document that includes:
+1. Main workflow analysis with Mermaid diagrams
+2. Other important workflows
+3. Key insights about the system's operational patterns
 
-Rules:
-- Always include both top-level fields.
-- main_workflow must be an object, never a plain string.
-- Every item in other_important_workflows must be an object with all 3 fields.
-- Use empty strings when unknown.
-- flowchart_mermaid should be valid Mermaid flowchart text (or empty string if unavailable)."#.to_string(),
+Focus on functional perspective rather than excessive technical details."#.to_string(),
             opening_instruction: "The following research reports are provided for analyzing the system's main workflows".to_string(),
-            closing_instruction: r#"Please analyze the system's core workflows based on the research materials.
+            closing_instruction: r#"
+## Document Structure Requirements:
+Please generate a comprehensive workflow documentation in Markdown format:
+
+```markdown
+# System Workflow Analysis
+
+## 1. Main Workflow
+- **Workflow Name**: [Name of the primary workflow]
+- **Description**: [Detailed description of what this workflow accomplishes]
+- **Flow Diagram**:
+```mermaid
+graph TD
+    A[Start] --> B[Step 1]
+    B --> C[Step 2]
+    ...
+```
+- **Key Steps**: [List the main steps and their purposes]
+
+## 2. Other Important Workflows
+### 2.1 [Workflow Name]
+- **Description**: [What this workflow does]
+- **Flow Diagram**: [Mermaid diagram if applicable]
+
+### 2.2 [Workflow Name]
+...
+
+## 3. Workflow Insights
+- [Key observations about the system's operational patterns]
+- [Potential optimization opportunities]
+- [Dependencies between workflows]
+```
 
 If external documentation is provided:
 - Validate code workflows against documented business processes
 - Note any discrepancies or missing steps
 - Use consistent process terminology"#.to_string(),
-            llm_call_mode: LLMCallMode::Extract,
+            llm_call_mode: LLMCallMode::Prompt, // Changed from Extract to Prompt
             formatter_config: FormatterConfig::default(),
         }
     }

@@ -318,74 +318,6 @@ where
     }
 }
 
-fn deserialize_workflow_lenient<'de, D>(deserializer: D) -> Result<Workflow, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let value = serde_json::Value::deserialize(deserializer)?;
-    match value {
-        serde_json::Value::Object(map) => {
-            serde_json::from_value::<Workflow>(serde_json::Value::Object(map))
-                .map_err(serde::de::Error::custom)
-        }
-        other => {
-            let name = any_to_string(other);
-            Ok(Workflow {
-                name,
-                description: String::new(),
-                flowchart_mermaid: String::new(),
-            })
-        }
-    }
-}
-
-fn deserialize_vec_workflow_lenient<'de, D>(deserializer: D) -> Result<Vec<Workflow>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    let value = serde_json::Value::deserialize(deserializer)?;
-    match value {
-        serde_json::Value::Null => Ok(Vec::new()),
-        serde_json::Value::Array(items) => {
-            let mut out = Vec::new();
-            for item in items {
-                match item {
-                    serde_json::Value::Object(map) => {
-                        if let Ok(parsed) =
-                            serde_json::from_value::<Workflow>(serde_json::Value::Object(map))
-                        {
-                            out.push(parsed);
-                        }
-                    }
-                    other => {
-                        let name = any_to_string(other);
-                        if !name.trim().is_empty() {
-                            out.push(Workflow {
-                                name,
-                                description: String::new(),
-                                flowchart_mermaid: String::new(),
-                            });
-                        }
-                    }
-                }
-            }
-            Ok(out)
-        }
-        other => {
-            let name = any_to_string(other);
-            if name.trim().is_empty() {
-                Ok(Vec::new())
-            } else {
-                Ok(vec![Workflow {
-                    name,
-                    description: String::new(),
-                    flowchart_mermaid: String::new(),
-                }])
-            }
-        }
-    }
-}
-
 fn deserialize_bool_lenient<'de, D>(deserializer: D) -> Result<bool, D::Error>
 where
     D: Deserializer<'de>,
@@ -1198,29 +1130,6 @@ pub struct DomainModulesReport {
     pub confidence_score: f64,
 }
 
-/// Workflow research result
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
-#[serde(default)]
-pub struct WorkflowReport {
-    // System main workflow
-    #[serde(default, deserialize_with = "deserialize_workflow_lenient")]
-    pub main_workflow: Workflow,
-    // Other important workflows
-    #[serde(default, deserialize_with = "deserialize_vec_workflow_lenient")]
-    pub other_important_workflows: Vec<Workflow>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
-#[serde(default)]
-pub struct Workflow {
-    #[serde(default, deserialize_with = "deserialize_string_lenient")]
-    pub name: String,
-    #[serde(default, deserialize_with = "deserialize_string_lenient")]
-    pub description: String,
-    #[serde(default, deserialize_with = "deserialize_string_lenient")]
-    pub flowchart_mermaid: String,
-}
-
 /// Boundary interface analysis result
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(default)]
@@ -1675,27 +1584,6 @@ mod tests {
         assert_eq!(report.business_flows[0].steps.len(), 2);
         assert_eq!(report.business_flows[0].steps[0].step, 1);
         assert_eq!(report.business_flows[0].steps[1].step, 2);
-    }
-
-    #[test]
-    fn test_workflow_report_deserialize_lenient_shapes() {
-        let payload = serde_json::json!({
-            "main_workflow": "Ingest and process telemetry",
-            "other_important_workflows": [
-                {"name": "Config reload"},
-                "Health check flow"
-            ]
-        });
-
-        let report: super::WorkflowReport = serde_json::from_value(payload)
-            .expect("WorkflowReport should deserialize with lenient workflow shapes");
-
-        assert_eq!(report.main_workflow.name, "Ingest and process telemetry");
-        assert_eq!(report.other_important_workflows.len(), 2);
-        assert_eq!(
-            report.other_important_workflows[1].name,
-            "Health check flow"
-        );
     }
 
     #[test]
