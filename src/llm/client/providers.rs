@@ -72,7 +72,14 @@ impl ProviderClient {
                 Ok(ProviderClient::OpenRouter(client))
             }
             LLMProvider::Anthropic => {
-                let client = rig::providers::anthropic::Client::new(&config.api_key)?;
+                let client = if config.api_base_url != "https://api.anthropic.com" {
+                    rig::providers::anthropic::Client::builder()
+                        .api_key(&config.api_key)
+                        .base_url(&config.api_base_url)
+                        .build()?
+                } else {
+                    rig::providers::anthropic::Client::new(&config.api_key)?
+                };
                 Ok(ProviderClient::Anthropic(client))
             }
             LLMProvider::Gemini => {

@@ -72,6 +72,9 @@ impl CodeAnalyze {
 
         // Process analysis results
         let mut code_insights = Vec::new();
+        let mut failed_count = 0;
+        let total_count = analysis_results.len();
+
         for result in analysis_results {
             match result {
                 Ok(code_insight) => {
@@ -79,15 +82,25 @@ impl CodeAnalyze {
                 }
                 Err(e) => {
                     eprintln!("❌ Code analysis failed: {}", e);
-                    return Err(e);
+                    failed_count += 1;
                 }
             }
         }
 
+        let success_count = code_insights.len();
         println!(
-            "✓ Concurrent code analysis completed, successfully analyzed {} files",
-            code_insights.len()
+            "✓ Concurrent code analysis completed, successfully analyzed {} files ({} failed out of {})",
+            success_count, failed_count, total_count
         );
+
+        if failed_count > 0 {
+            eprintln!(
+                "❌ Error: {} file(s) failed AI analysis in preprocess stage",
+                failed_count
+            );
+            anyhow::bail!("Preprocess stage failed due to {} file analysis error(s)", failed_count);
+        }
+
         Ok(code_insights)
     }
 }
