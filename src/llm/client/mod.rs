@@ -137,15 +137,11 @@ impl LLMClient {
         &self,
         system_prompt: &str,
         user_prompt: &str,
-        mut react_config: ReActConfig,
+        react_config: ReActConfig,
     ) -> Result<ReActResponse> {
         let agent_builder = self.get_agent_builder();
         let agent = agent_builder.build_agent_with_tools(system_prompt);
         let model_name = self.config.llm.model_efficient.clone();
-
-        // Apply config settings
-        react_config.max_iterations = self.config.llm.max_turns;
-        react_config.concurrency = self.config.llm.tool_concurrency;
 
         let response = self
             .retry_with_backoff(|| async {

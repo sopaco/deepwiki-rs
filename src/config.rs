@@ -183,7 +183,7 @@ pub struct LLMConfig {
 }
 
 fn default_max_turns() -> usize {
-    30
+    100
 }
 
 fn default_tool_concurrency() -> usize {

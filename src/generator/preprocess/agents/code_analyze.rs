@@ -48,10 +48,16 @@ impl CodeAnalyze {
                     static_insight.code_dossier.source_summary = code_clone.source_summary.to_owned();
 
                     // Use simplified LLM output structure for better reliability
-                    let llm_output = extract::<CodeInsightLLMOutput>(&context_clone, agent_params).await?;
+                    // LLM enhancement is optional - fall back to static analysis on failure
+                    match extract::<CodeInsightLLMOutput>(&context_clone, agent_params).await {
+                        Ok(llm_output) => {
+                            static_insight.merge_llm_output(llm_output);
+                        }
+                        Err(e) => {
+                            eprintln!("⚠️  LLM enhancement failed for '{}', keeping static analysis: {}", code_clone.name, e);
+                        }
+                    }
 
-                    // Merge LLM output into static insight
-                    static_insight.merge_llm_output(llm_output);
                     static_insight.code_dossier.source_summary = code_clone.source_summary.to_owned();
                     Result::<CodeInsight>::Ok(static_insight)
                 })
