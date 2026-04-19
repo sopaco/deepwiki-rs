@@ -86,10 +86,17 @@ impl CodeAnalyze {
         }
 
         let success_count = code_insights.len();
-        println!(
-            "✓ Concurrent code analysis completed, successfully analyzed {} files ({} failed out of {})",
-            success_count, failed_count, total_count
-        );
+        if failed_count > 0 {
+            eprintln!(
+                "⚠ Concurrent code analysis: {} succeeded, {} failed out of {}",
+                success_count, failed_count, total_count
+            );
+        } else {
+            println!(
+                "✓ Concurrent code analysis completed, successfully analyzed {} files",
+                success_count
+            );
+        }
 
         if failed_count > 0 {
             eprintln!(

@@ -16,14 +16,35 @@ pub fn read_code_source(
     // Build full file path
     let full_path = project_path.join(file_path);
 
-    // Read source code
-    if let Ok(content) = std::fs::read_to_string(&full_path) {
-        // If code is too long, intelligently truncate
-        truncate_source_code(language_processor, &full_path, &content, max_file_size)
+    // Read source code with size limit to prevent OOM
+    if let Ok(metadata) = std::fs::metadata(&full_path) {
+        let file_size = metadata.len() as usize;
+        let read_size = file_size.min(max_file_size);
+
+        if let Ok(content) = read_file_with_limit(&full_path, read_size) {
+            // If code is too long, intelligently truncate
+            truncate_source_code(language_processor, &full_path, &content, max_file_size)
+        } else {
+            let msg = target_language.msg_cannot_read_file();
+            msg.replace("{}", &full_path.display().to_string())
+        }
     } else {
         let msg = target_language.msg_cannot_read_file();
         msg.replace("{}", &full_path.display().to_string())
     }
+}
+
+/// Read file with byte limit to prevent OOM
+fn read_file_with_limit(path: &PathBuf, max_bytes: usize) -> std::io::Result<String> {
+    use std::io::Read;
+
+    let file = std::fs::File::open(path)?;
+    let mut reader = std::io::BufReader::new(file);
+    let mut buffer = vec![0u8; max_bytes];
+    let bytes_read = reader.read(&mut buffer)?;
+
+    buffer.truncate(bytes_read);
+    String::from_utf8(buffer).map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid UTF-8"))
 }
 
 fn truncate_source_code(

@@ -91,7 +91,7 @@ impl StructureExtractor {
         })
     }
 
-    /// Get files tracked by git as a HashSet of relative paths
+    /// Get files tracked by git as a HashSet of absolute paths
     fn get_tracked_files(&self, project_path: &PathBuf) -> HashMap<PathBuf, ()> {
         let mut tracked = HashMap::new();
 
@@ -107,7 +107,11 @@ impl StructureExtractor {
                     let path = project_path.join(line);
                     tracked.insert(path, ());
                 }
+            } else {
+                eprintln!("⚠️  Warning: git ls-files failed, git_tracked_only will be ignored");
             }
+        } else {
+            eprintln!("⚠️  Warning: Failed to run git ls-files, git_tracked_only will be ignored");
         }
 
         tracked
