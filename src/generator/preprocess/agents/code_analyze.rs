@@ -30,6 +30,7 @@ impl CodeAnalyze {
         project_structure: &ProjectStructure,
     ) -> Result<Vec<CodeInsight>> {
         let max_parallels = context.config.llm.max_parallels;
+        let root_path = project_structure.root_path.clone();
 
         // Create concurrent tasks
         let analysis_futures: Vec<_> = codes
@@ -37,13 +38,13 @@ impl CodeAnalyze {
             .map(|code| {
                 let code_clone = code.clone();
                 let context_clone = context.clone();
-                let project_structure_clone = project_structure.clone();
+                let root_path_clone = root_path.clone();
                 let language_processor = self.language_processor.clone();
 
                 Box::pin(async move {
                     let code_analyze = CodeAnalyze { language_processor };
                     let (agent_params, mut static_insight) = code_analyze
-                        .prepare_single_code_agent_params(&project_structure_clone, &code_clone)
+                        .prepare_single_code_agent_params(&root_path_clone, &code_clone)
                         .await?;
                     static_insight.code_dossier.source_summary = code_clone.source_summary.to_owned();
 
@@ -105,14 +106,14 @@ impl CodeAnalyze {
 impl CodeAnalyze {
     async fn prepare_single_code_agent_params(
         &self,
-        project_structure: &ProjectStructure,
+        root_path: &std::path::PathBuf,
         codes: &CodeDossier,
     ) -> Result<(AgentExecuteParams, CodeInsight)> {
         // First perform static analysis
-        let code_analyse = self.analyze_code_by_rules(codes, project_structure).await?;
+        let code_analyse = self.analyze_code_by_rules(codes, root_path).await?;
 
         // Then use AI for enhanced analysis
-        let prompt_user = self.build_code_analysis_prompt(project_structure, &code_analyse);
+        let prompt_user = self.build_code_analysis_prompt(root_path, &code_analyse);
         let prompt_sys = include_str!("prompts/code_analyze_sys.tpl").to_string();
 
         Ok((
@@ -130,14 +131,12 @@ impl CodeAnalyze {
 impl CodeAnalyze {
     fn build_code_analysis_prompt(
         &self,
-        project_structure: &ProjectStructure,
+        root_path: &std::path::PathBuf,
         analysis: &CodeInsight,
     ) -> String {
-        let project_path = &project_structure.root_path;
-
         // Read source code snippets of dependency components
         let dependency_code =
-            read_dependency_code_source(&self.language_processor, analysis, project_path);
+            read_dependency_code_source(&self.language_processor, analysis, root_path);
 
         format!(
             include_str!("prompts/code_analyze_user.tpl"),
@@ -158,9 +157,9 @@ impl CodeAnalyze {
     async fn analyze_code_by_rules(
         &self,
         code: &CodeDossier,
-        project_structure: &ProjectStructure,
+        root_path: &std::path::PathBuf,
     ) -> Result<CodeInsight> {
-        let full_path = project_structure.root_path.join(&code.file_path);
+        let full_path = root_path.join(&code.file_path);
 
         // Read file content
         let content = if full_path.exists() {
