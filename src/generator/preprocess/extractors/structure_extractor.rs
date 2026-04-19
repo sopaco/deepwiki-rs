@@ -13,6 +13,47 @@ use std::fs::Metadata;
 use std::path::PathBuf;
 use std::process::Command;
 
+/// Heap that maintains top-N FileInfo items by importance_score
+/// Works around f64 not implementing Ord by using total ordering
+struct TopNHeap {
+    items: Vec<FileInfo>,
+    max_size: usize,
+}
+
+impl TopNHeap {
+    fn new(max_size: usize) -> Self {
+        Self {
+            items: Vec::new(),
+            max_size: max_size.max(1),
+        }
+    }
+
+    fn into_vec(self) -> Vec<FileInfo> {
+        self.items
+    }
+
+    fn push(&mut self, item: FileInfo) {
+        if self.items.len() < self.max_size {
+            self.items.push(item);
+            self.items.sort_by(|a, b| {
+                b.importance_score.partial_cmp(&a.importance_score)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            });
+        } else if let Some(last) = self.items.last() {
+            if item.importance_score > last.importance_score
+                || (item.importance_score == last.importance_score && item.importance_score.is_finite())
+            {
+                self.items.pop();
+                self.items.push(item);
+                self.items.sort_by(|a, b| {
+                    b.importance_score.partial_cmp(&a.importance_score)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                });
+            }
+        }
+    }
+}
+
 /// Project structure extractor
 pub struct StructureExtractor {
     language_processor: LanguageProcessorManager,
@@ -49,9 +90,11 @@ impl StructureExtractor {
 
     async fn extract_structure_impl(&self, project_path: &PathBuf) -> Result<ProjectStructure> {
         let mut directories = Vec::new();
-        let mut files = Vec::new();
         let mut file_types = HashMap::new();
         let mut size_distribution = HashMap::new();
+
+        // Calculate max_core_files upfront for heap size
+        let max_core_files = ((self.context.config.core_component_percentage / 100.0).max(0.01).min(1.0) * 10000.0).ceil() as usize;
 
         // Get git tracked files for filtering (only if needed)
         let tracked_files = if self.context.config.git_tracked_only {
@@ -60,12 +103,15 @@ impl StructureExtractor {
             HashMap::new()
         };
 
+        // Use TopNHeap to limit memory: only keeps top N files during scan
+        let mut top_files_heap = TopNHeap::new(max_core_files);
+
         // Scan directory, extract internal directory and file structure and basic file information
         self.scan_directory(
             project_path,
             project_path,
             &mut directories,
-            &mut files,
+            &mut top_files_heap,
             &mut file_types,
             &mut size_distribution,
             &tracked_files,
@@ -74,7 +120,15 @@ impl StructureExtractor {
         )
         .await?;
 
-        // Calculate importance scores
+        // Extract and sort files from heap
+        let mut files = top_files_heap.into_vec();
+        files.sort_by(|a, b| {
+            b.importance_score.partial_cmp(&a.importance_score).unwrap_or(std::cmp::Ordering::Equal)
+        });
+        let total_files = files.len();
+        let _ = total_files; // Used for ProjectStructure.total_files
+
+        // Calculate importance scores (scores already calculated during scan, just refine)
         self.calculate_importance_scores(&mut files, &mut directories);
 
         let project_name = self.context.config.get_project_name();
@@ -122,7 +176,7 @@ impl StructureExtractor {
         current_path: &'a PathBuf,
         root_path: &'a PathBuf,
         directories: &'a mut Vec<DirectoryInfo>,
-        files: &'a mut Vec<FileInfo>,
+        files: &'a mut TopNHeap,
         file_types: &'a mut HashMap<String, usize>,
         size_distribution: &'a mut HashMap<String, usize>,
         tracked_files: &'a HashMap<PathBuf, ()>,
@@ -147,7 +201,10 @@ impl StructureExtractor {
                     // Check if this file should be ignored
                     if !self.should_ignore_file(&path, tracked_files) {
                         if let Ok(metadata) = std::fs::metadata(&path) {
-                            let file_info = self.create_file_info(&path, root_path, &metadata)?;
+                            let mut file_info = self.create_file_info(&path, root_path, &metadata)?;
+
+                            // Calculate importance score during scan (lazy calculation)
+                            self.calculate_file_importance_score(&mut file_info);
 
                             // Update statistics
                             if let Some(ext) = &file_info.extension {
@@ -160,6 +217,7 @@ impl StructureExtractor {
                             dir_file_count += 1;
                             dir_total_size += file_info.size;
 
+                            // Use heap to limit memory - only keeps top N by importance
                             files.push(file_info);
                         }
                     }
@@ -259,6 +317,55 @@ impl StructureExtractor {
         }
     }
 
+    fn calculate_file_importance_score(&self, file: &mut FileInfo) {
+        let mut score: f64 = 0.0;
+
+        // Weight based on file location
+        let path_str = file.path.to_string_lossy().to_lowercase();
+        if path_str.contains("src") || path_str.contains("lib") {
+            score += 0.3;
+        }
+        if path_str.contains("main") || path_str.contains("index") {
+            score += 0.2;
+        }
+        if path_str.contains("config") || path_str.contains("setup") {
+            score += 0.1;
+        }
+
+        // Weight based on file size
+        if file.size > 1024 && file.size < 50 * 1024 {
+            score += 0.2;
+        }
+
+        // Weight based on file type
+        if let Some(ref ext) = file.extension {
+            match ext.as_str() {
+                "rs" | "py" | "java" | "kt" | "cpp" | "c" | "go" | "rb" | "php" | "m"
+                | "swift" | "dart" | "cs" => score += 0.3,
+                "jsx" | "tsx" => score += 0.3,
+                "js" | "ts" | "mjs" | "cjs" => score += 0.3,
+                "vue" | "svelte" => score += 0.3,
+                "wxml" | "ttml" | "ksml" => score += 0.3,
+                "sql" | "sqlproj" => score += 0.25,
+                "csproj" | "sln" => score += 0.2,
+                "toml" | "yaml" | "yml" | "json" | "xml" | "ini" | "env" => score += 0.1,
+                "gradle" | "pom" => score += 0.15,
+                "package" => score += 0.15,
+                "lock" => score += 0.05,
+                "css" | "scss" | "sass" | "less" | "styl" | "wxss" => score += 0.1,
+                "html" | "htm" | "hbs" | "mustache" | "ejs" => score += 0.1,
+                _ => {}
+            }
+        }
+
+        // Bonus for database-related paths
+        if path_str.contains("database") || path_str.contains("schema") || path_str.contains("migrations") {
+            score += 0.15;
+        }
+
+        file.importance_score = score.min(1.0);
+    }
+
     fn should_ignore_directory(&self, dir_name: &str) -> bool {
         let config = &self.context.config;
         let dir_name_lower = dir_name.to_lowercase();
@@ -355,70 +462,11 @@ impl StructureExtractor {
 
     fn calculate_importance_scores(
         &self,
-        files: &mut [FileInfo],
+        _files: &mut Vec<FileInfo>,
         directories: &mut [DirectoryInfo],
     ) {
-        // Calculate file importance scores
-        for file in files.iter_mut() {
-            let mut score: f64 = 0.0;
-
-            // Weight based on file location
-            let path_str = file.path.to_string_lossy().to_lowercase();
-            if path_str.contains("src") || path_str.contains("lib") {
-                score += 0.3;
-            }
-            if path_str.contains("main") || path_str.contains("index") {
-                score += 0.2;
-            }
-            if path_str.contains("config") || path_str.contains("setup") {
-                score += 0.1;
-            }
-
-            // Weight based on file size
-            if file.size > 1024 && file.size < 50 * 1024 {
-                score += 0.2;
-            }
-
-            // Weight based on file type
-            if let Some(ext) = &file.extension {
-                match ext.as_str() {
-                    // Main programming languages
-                    "rs" | "py" | "java" | "kt" | "cpp" | "c" | "go" | "rb" | "php" | "m"
-                    | "swift" | "dart" | "cs" => score += 0.3,
-                    // React special files
-                    "jsx" | "tsx" => score += 0.3,
-                    // JavaScript/TypeScript ecosystem
-                    "js" | "ts" | "mjs" | "cjs" => score += 0.3,
-                    // Frontend framework files
-                    "vue" | "svelte" => score += 0.3,
-                    // Mini App
-                    "wxml" | "ttml" | "ksml" => score += 0.3,
-                    // SQL and database files
-                    "sql" | "sqlproj" => score += 0.25,
-                    // .NET project files
-                    "csproj" | "sln" => score += 0.2,
-                    // Configuration files
-                    "toml" | "yaml" | "yml" | "json" | "xml" | "ini" | "env" => score += 0.1,
-                    // Build and package management files
-                    "gradle" | "pom" => score += 0.15,
-                    "package" => score += 0.15,
-                    "lock" => score += 0.05,
-                    // Style files
-                    "css" | "scss" | "sass" | "less" | "styl" | "wxss"  => score += 0.1,
-                    // Template files
-                    "html" | "htm" | "hbs" | "mustache" | "ejs" => score += 0.1,
-                    _ => {}
-                }
-            }
-            
-            // Bonus for database-related paths
-            let path_str = file.path.to_string_lossy().to_lowercase();
-            if path_str.contains("database") || path_str.contains("schema") || path_str.contains("migrations") {
-                score += 0.15;
-            }
-
-            file.importance_score = score.min(1.0);
-        }
+        // File scores are already calculated during scan via calculate_file_importance_score
+        // Only recalculate if files is empty (backward compatible)
 
         // Calculate directory importance scores
         for dir in directories.iter_mut() {

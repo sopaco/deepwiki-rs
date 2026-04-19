@@ -642,7 +642,7 @@ impl Default for Config {
             analyze_dependencies: true,
             identify_components: true,
             max_depth: 10,
-            core_component_percentage: 20.0,
+            core_component_percentage: 30.0,
             max_file_size: 512 * 1024, // 512KB
             include_tests: false,
             include_hidden: false,

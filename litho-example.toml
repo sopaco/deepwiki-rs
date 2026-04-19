@@ -32,9 +32,9 @@ target_language = "en"
 # Maximum directory depth to scan (default: 10)
 # max_depth = 10
 
-# Percentage threshold for identifying core components (0-100, default: 20)
+# Percentage threshold for identifying core components (0-100, default: 30)
 # Lower values = fewer files analyzed, less memory/time
-# core_component_percentage = 20.0
+# core_component_percentage = 30.0
 
 # Maximum file size to analyze in bytes (default: 524288 = 512KB)
 # max_file_size = 524288
