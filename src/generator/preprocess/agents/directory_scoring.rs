@@ -67,7 +67,11 @@ impl DirectoryScorer {
             "directory_scoring_{}",
             context.config.project_path.to_string_lossy().replace(['/', '\\', ':', '.'], "_")
         );
-        let log_tag = format!("dir_score_{}", directories.len());
+        let log_tag = format!(
+            "dir_score({})_{}",
+            context.config.project_path.file_name().map(|n| n.to_string_lossy()).unwrap_or_else(|| "unknown".into()),
+            directories.len()
+        );
 
         let response: DirectoryScoringResponse = extract(
             context,
