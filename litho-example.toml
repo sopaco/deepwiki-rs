@@ -172,8 +172,11 @@ timeout_seconds = 300
 # Disable preset tools (advanced option)
 disable_preset_tools = false
 
-# Maximum number of parallel LLM requests
-max_parallels = 3
+# Maximum number of parallel LLM requests (default: 3)
+# max_parallels = 3
+
+# Tool call concurrency in ReAct loops (default: 4)
+# tool_concurrency = 4
 
 # ============================================================================
 # Cache Configuration
