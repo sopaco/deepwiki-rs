@@ -1,3 +1,3 @@
-pub mod code_analyze;
-pub mod code_purpose_analyze;
+pub mod directory_scoring;
+pub mod directory_summary;
 pub mod relationships_analyze;

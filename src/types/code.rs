@@ -295,6 +295,7 @@ pub struct CodeInsight {
 /// Only contains fields that need LLM enhancement, reducing JSON schema complexity
 #[derive(Debug, Serialize, Deserialize, Clone, Default, JsonSchema)]
 #[serde(default)]
+#[allow(dead_code)]
 pub struct CodeInsightLLMOutput {
     /// Detailed description of the code component
     #[serde(default, deserialize_with = "deserialize_string_lenient")]
@@ -306,6 +307,7 @@ pub struct CodeInsightLLMOutput {
 
 impl CodeInsight {
     /// Merge LLM output into this CodeInsight
+    #[allow(dead_code)]
     pub fn merge_llm_output(&mut self, llm_output: CodeInsightLLMOutput) {
         if !llm_output.detailed_description.is_empty() {
             self.detailed_description = llm_output.detailed_description;
@@ -632,6 +634,7 @@ impl CodePurposeMapper {
     }
 
     /// Intelligent mapping based on file path and name
+    #[allow(dead_code)]
     pub fn map_by_path_and_name(file_path: &str, file_name: &str) -> CodePurpose {
         let path_lower = file_path.to_lowercase();
         let name_lower = file_name.to_lowercase();

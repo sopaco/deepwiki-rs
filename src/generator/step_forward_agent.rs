@@ -11,7 +11,7 @@ use crate::{
     generator::context::GeneratorContext,
     types::{
         code::CodeInsight, code_releationship::RelationshipAnalysis,
-        project_structure::ProjectStructure,
+        project_structure::ProjectStructure, CodeAndDirectoryInsights,
     },
     utils::project_structure_formatter::ProjectStructureFormatter,
     utils::prompt_compressor::{CompressionConfig, PromptCompressor},
@@ -171,7 +171,8 @@ impl DataFormatter {
         ProjectStructureFormatter::format_as_tree(structure)
     }
 
-    /// Format code insights information
+    /// Format code insights information (legacy — for Vec<CodeInsight>)
+    #[allow(dead_code)]
     pub fn format_code_insights(&self, insights: &[CodeInsight]) -> String {
         let config = &self.config;
 
@@ -204,6 +205,57 @@ impl DataFormatter {
                 content.push_str(&format!(
                     "   Source code details: ```code\n{}\n\n",
                     &insight.code_dossier.source_summary
+                ));
+            }
+        }
+        content.push_str("\n");
+        content
+    }
+
+    /// Format directory + file insights from CodeAndDirectoryInsights.
+    /// Flattens all directory_insights[*].file_insights into a single list,
+    /// sorts by importance_score, and formats in the same style as the legacy
+    /// file-level output.
+    pub fn format_code_and_directory_insights(
+        &self,
+        insights: &CodeAndDirectoryInsights,
+    ) -> String {
+        let config = &self.config;
+
+        // Flatten all file_insights from all directories
+        let mut all_files: Vec<_> = insights
+            .directory_insights
+            .iter()
+            .flat_map(|d| d.file_insights.iter())
+            .collect();
+
+        // Sort by importance score descending
+        all_files.sort_by(|a, b| {
+            b.importance_score
+                .partial_cmp(&a.importance_score)
+                .unwrap_or(std::cmp::Ordering::Equal)
+        });
+
+        let mut content = String::from("### Source Code Insights Summary\n");
+        for (i, fi) in all_files.iter().take(config.code_insights_limit).enumerate() {
+            content.push_str(&format!(
+                "{}. File `{}` (in `{}`), purpose type is `{:?}`, importance: {:.2}\n",
+                i + 1,
+                fi.name,
+                fi.file_path.parent().map(|p| p.to_string_lossy().to_string()).unwrap_or_default(),
+                fi.code_purpose,
+                fi.importance_score
+            ));
+            if !fi.summary.is_empty() {
+                content.push_str(&format!("   Summary: {}\n", fi.summary));
+            }
+            if !fi.detailed_description.is_empty() {
+                content.push_str(&format!("   Detailed description: {}\n", fi.detailed_description));
+            }
+            if config.include_source_code && !fi.source_summary.is_empty() {
+                content.push_str(&format!(
+                    "   Source code details: ```code\n{}\n\n",
+                    fi.source_summary
                 ));
             }
         }
@@ -439,10 +491,10 @@ impl GeneratorPromptBuilder {
                     }
                     ScopedKeys::CODE_INSIGHTS => {
                         if let Some(insights) = context
-                            .get_from_memory::<Vec<CodeInsight>>(scope, key)
+                            .get_from_memory::<CodeAndDirectoryInsights>(scope, key)
                             .await
                         {
-                            let formatted = self.formatter.format_code_insights(&insights);
+                            let formatted = self.formatter.format_code_and_directory_insights(&insights);
                             let compressed = self
                                 .formatter
                                 .compress_content_if_needed(context, &formatted, "Code Insights")
@@ -620,6 +672,7 @@ pub trait StepForwardAgent: Send + Sync {
             prompt_user: user_prompt,
             cache_scope: format!("{}/{}", self.memory_scope_key(), agent_type_value.as_str()),
             log_tag,
+            progress: None,
         };
 
         let result_value = match template.llm_call_mode {

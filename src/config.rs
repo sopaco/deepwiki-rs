@@ -68,6 +68,7 @@ impl std::str::FromStr for LLMProvider {
 
 /// Application configuration
 #[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(default)]
 pub struct Config {
     /// Project name
     pub project_name: Option<String>,
@@ -93,9 +94,6 @@ pub struct Config {
     /// Maximum recursion depth
     pub max_depth: u8,
 
-    /// Core component percentage
-    pub core_component_percentage: f64,
-
     /// Maximum file size limit (bytes)
     pub max_file_size: u64,
 
@@ -104,6 +102,9 @@ pub struct Config {
 
     /// Whether to include hidden files
     pub include_hidden: bool,
+
+    /// Whether to only include files tracked by git (ignore untracked files)
+    pub git_tracked_only: bool,
 
     /// Directories to exclude
     pub excluded_dirs: Vec<String>,
@@ -172,6 +173,22 @@ pub struct LLMConfig {
     pub disable_preset_tools: bool,
 
     pub max_parallels: usize,
+
+    /// Maximum tool calling turns for agent with tools
+    #[serde(default = "default_max_turns")]
+    pub max_turns: usize,
+
+    /// Concurrency level for parallel tool execution
+    #[serde(default = "default_tool_concurrency")]
+    pub tool_concurrency: usize,
+}
+
+fn default_max_turns() -> usize {
+    100
+}
+
+fn default_tool_concurrency() -> usize {
+    4
 }
 
 /// Cache configuration
@@ -190,12 +207,6 @@ pub struct CacheConfig {
 /// Boundary analysis configuration
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct BoundaryAnalysisConfig {
-    /// Maximum number of boundary code insights to analyze
-    /// Reducing this value can significantly speed up processing and reduce timeout risk
-    /// Default: 50
-    #[serde(default = "default_max_boundary_insights")]
-    pub max_boundary_insights: usize,
-
     /// Code insights limit for formatting
     /// Controls how many code insights are included in the prompt
     /// Default: 100
@@ -213,10 +224,6 @@ pub struct BoundaryAnalysisConfig {
     /// Default: 500
     #[serde(default = "default_files_threshold")]
     pub only_directories_when_files_more_than: Option<usize>,
-}
-
-fn default_max_boundary_insights() -> usize {
-    15  // Reduced default to avoid 504 timeouts on large codebases
 }
 
 fn default_code_insights_limit() -> usize {
@@ -622,10 +629,10 @@ impl Default for Config {
             analyze_dependencies: true,
             identify_components: true,
             max_depth: 10,
-            core_component_percentage: 20.0,
-            max_file_size: 64 * 1024, // 64KB
+            max_file_size: 512 * 1024, // 512KB
             include_tests: false,
             include_hidden: false,
+            git_tracked_only: true,
             excluded_dirs: vec![
                 ".litho".to_string(),
                 "litho.docs".to_string(),
@@ -701,6 +708,8 @@ impl Default for LLMConfig {
             timeout_seconds: 300,
             disable_preset_tools: false,
             max_parallels: 3,
+            max_turns: 100,
+            tool_concurrency: 4,
         }
     }
 }
@@ -718,7 +727,6 @@ impl Default for CacheConfig {
 impl Default for BoundaryAnalysisConfig {
     fn default() -> Self {
         Self {
-            max_boundary_insights: default_max_boundary_insights(),
             code_insights_limit: default_code_insights_limit(),
             include_source_code: default_false(),
             only_directories_when_files_more_than: default_files_threshold(),
@@ -734,7 +742,6 @@ mod tests {
     fn test_boundary_analysis_default_values() {
         let config = BoundaryAnalysisConfig::default();
         
-        assert_eq!(config.max_boundary_insights, 15);
         assert_eq!(config.code_insights_limit, 25);
         assert_eq!(config.include_source_code, false);
         assert_eq!(config.only_directories_when_files_more_than, Some(100));

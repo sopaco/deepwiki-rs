@@ -10,7 +10,7 @@ use crate::generator::{
         AgentDataConfig, DataSource, FormatterConfig, LLMCallMode, PromptTemplate, StepForwardAgent,
     },
 };
-use crate::types::code::CodeInsight;
+use crate::types::{CodeAndDirectoryInsights, FileInsight};
 use crate::utils::threads::do_parallel_with_limit;
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
@@ -172,9 +172,9 @@ impl KeyModulesInsight {
         &self,
         domain: &DomainModule,
         context: &GeneratorContext,
-    ) -> Result<Vec<CodeInsight>> {
+    ) -> Result<Vec<FileInsight>> {
         let all_insights = context
-            .get_from_memory::<Vec<CodeInsight>>(MemoryScope::PREPROCESS, ScopedKeys::CODE_INSIGHTS)
+            .get_from_memory::<CodeAndDirectoryInsights>(MemoryScope::PREPROCESS, ScopedKeys::CODE_INSIGHTS)
             .await
             .expect("memory of CODE_INSIGHTS not found in PREPROCESS");
 
@@ -199,10 +199,13 @@ impl KeyModulesInsight {
             return Ok(Vec::new());
         }
 
-        let filtered: Vec<CodeInsight> = all_insights
-            .into_iter()
-            .filter(|insight| {
-                let file_path = insight.code_dossier.file_path.to_string_lossy();
+        // Flatten all file_insights from directory_dossiers
+        let all_files: Vec<FileInsight> = all_insights
+            .directory_insights
+            .iter()
+            .flat_map(|d| d.file_insights.iter())
+            .filter(|fi| {
+                let file_path = fi.file_path.to_string_lossy();
                 let file_path = file_path.replace('\\', "/");
                 domain_paths.iter().any(|path| {
                     let path = path.replace('\\', "/");
@@ -210,14 +213,15 @@ impl KeyModulesInsight {
                 })
             })
             .take(50)
+            .cloned()
             .collect();
 
         println!(
             "📁 Filtered {} related code files for domain '{}'",
-            filtered.len(),
+            all_files.len(),
             domain.name
         );
-        Ok(filtered)
+        Ok(all_files)
     }
 
     // Execute analysis for a single domain module
@@ -245,6 +249,7 @@ impl KeyModulesInsight {
                 domain.name
             ),
             log_tag: format!("{} domain analysis", domain.name),
+            progress: None,
         };
 
         println!("🤖 Analyzing '{}' domain...", domain.name);
@@ -264,7 +269,7 @@ impl KeyModulesInsight {
     fn build_domain_prompt(
         &self,
         domain: &DomainModule,
-        insights: &[CodeInsight],
+        insights: &[FileInsight],
     ) -> (String, String) {
         let system_prompt =
             "Based on the provided domain and code insights, conduct in-depth analysis and return strict JSON only.
@@ -327,7 +332,7 @@ Rules:
     }
 
     // Format filtered code insights
-    fn format_filtered_insights(&self, insights: &[CodeInsight]) -> String {
+    fn format_filtered_insights(&self, insights: &[FileInsight]) -> String {
         if insights.is_empty() {
             return "No related code insights available".to_string();
         }
@@ -335,14 +340,14 @@ Rules:
         insights
             .iter()
             .enumerate()
-            .map(|(i, insight)| {
+            .map(|(i, fi)| {
                 format!(
                     "{}. File `{}`, Purpose: {}\n   Description: {}\n   Source Code\n```code\n{}```\n---\n",
                     i + 1,
-                    insight.code_dossier.file_path.to_string_lossy(),
-                    insight.code_dossier.code_purpose,
-                    insight.detailed_description,
-                    insight.code_dossier.source_summary
+                    fi.file_path.to_string_lossy(),
+                    fi.code_purpose,
+                    fi.summary,
+                    fi.source_summary
                 )
             })
             .collect::<Vec<_>>()

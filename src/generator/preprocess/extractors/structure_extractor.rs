@@ -1,29 +1,25 @@
 use crate::generator::context::GeneratorContext;
-use crate::generator::preprocess::agents::code_purpose_analyze::CodePurposeEnhancer;
-use crate::generator::preprocess::extractors::language_processors::LanguageProcessorManager;
-use crate::types::code::{CodeDossier, CodePurpose, CodePurposeMapper};
+use crate::generator::preprocess::agents::directory_scoring::DirectoryScorer;
 use crate::types::project_structure::ProjectStructure;
 use crate::types::{DirectoryInfo, FileInfo};
 use crate::utils::file_utils::{is_binary_file_path, is_test_directory, is_test_file};
-use crate::utils::sources::read_code_source;
 use anyhow::Result;
 use futures::future::BoxFuture;
 use std::collections::HashMap;
 use std::fs::Metadata;
 use std::path::PathBuf;
+use std::process::Command;
 
 /// Project structure extractor
 pub struct StructureExtractor {
-    language_processor: LanguageProcessorManager,
-    code_purpose_enhancer: CodePurposeEnhancer,
+    directory_scorer: DirectoryScorer,
     context: GeneratorContext,
 }
 
 impl StructureExtractor {
     pub fn new(context: GeneratorContext) -> Self {
         Self {
-            language_processor: LanguageProcessorManager::new(),
-            code_purpose_enhancer: CodePurposeEnhancer::new(),
+            directory_scorer: DirectoryScorer::new(),
             context,
         }
     }
@@ -48,9 +44,18 @@ impl StructureExtractor {
 
     async fn extract_structure_impl(&self, project_path: &PathBuf) -> Result<ProjectStructure> {
         let mut directories = Vec::new();
-        let mut files = Vec::new();
         let mut file_types = HashMap::new();
         let mut size_distribution = HashMap::new();
+
+        // Get git tracked files for filtering (only if needed)
+        let tracked_files = if self.context.config.git_tracked_only {
+            self.get_tracked_files(project_path)
+        } else {
+            HashMap::new()
+        };
+
+        // Collect all files during scan
+        let mut files = Vec::new();
 
         // Scan directory, extract internal directory and file structure and basic file information
         self.scan_directory(
@@ -60,12 +65,33 @@ impl StructureExtractor {
             &mut files,
             &mut file_types,
             &mut size_distribution,
+            &tracked_files,
             0,
             self.context.config.max_depth.into(),
         )
         .await?;
 
-        // Calculate importance scores
+        // Sort directories lexicographically for deterministic ordering
+        directories.sort_by(|a, b| a.path.cmp(&b.path));
+
+        // Sort files by importance score
+        files.sort_by(|a, b| {
+            b.importance_score.partial_cmp(&a.importance_score).unwrap_or(std::cmp::Ordering::Equal)
+        });
+        let total_files = files.len();
+        let _ = total_files; // Used for ProjectStructure.total_files
+
+        // Apply LLM directory scoring boost to all directories
+        match self.directory_scorer.score_directories(&self.context, &directories).await {
+            Ok(dir_scores) => {
+                self.apply_directory_score_boost(&mut files, &dir_scores);
+            }
+            Err(e) => {
+                eprintln!("⚠️  Directory scoring failed: {}, skipping", e);
+            }
+        }
+
+        // Calculate importance scores (scores already calculated during scan, just refine)
         self.calculate_importance_scores(&mut files, &mut directories);
 
         let project_name = self.context.config.get_project_name();
@@ -82,6 +108,32 @@ impl StructureExtractor {
         })
     }
 
+    /// Get files tracked by git as a HashSet of absolute paths
+    fn get_tracked_files(&self, project_path: &PathBuf) -> HashMap<PathBuf, ()> {
+        let mut tracked = HashMap::new();
+
+        // Use git ls-files to get all tracked files
+        if let Ok(output) = Command::new("git")
+            .args(["ls-files"])
+            .current_dir(project_path)
+            .output()
+        {
+            if output.status.success() {
+                let files = String::from_utf8_lossy(&output.stdout);
+                for line in files.lines() {
+                    let path = project_path.join(line);
+                    tracked.insert(path, ());
+                }
+            } else {
+                eprintln!("⚠️  Warning: git ls-files failed, git_tracked_only will be ignored");
+            }
+        } else {
+            eprintln!("⚠️  Warning: Failed to run git ls-files, git_tracked_only will be ignored");
+        }
+
+        tracked
+    }
+
     fn scan_directory<'a>(
         &'a self,
         current_path: &'a PathBuf,
@@ -90,6 +142,7 @@ impl StructureExtractor {
         files: &'a mut Vec<FileInfo>,
         file_types: &'a mut HashMap<String, usize>,
         size_distribution: &'a mut HashMap<String, usize>,
+        tracked_files: &'a HashMap<PathBuf, ()>,
         current_depth: usize,
         max_depth: usize,
     ) -> BoxFuture<'a, Result<()>> {
@@ -109,9 +162,12 @@ impl StructureExtractor {
 
                 if file_type.is_file() {
                     // Check if this file should be ignored
-                    if !self.should_ignore_file(&path) {
+                    if !self.should_ignore_file(&path, tracked_files) {
                         if let Ok(metadata) = std::fs::metadata(&path) {
-                            let file_info = self.create_file_info(&path, root_path, &metadata)?;
+                            let mut file_info = self.create_file_info(&path, root_path, &metadata)?;
+
+                            // Calculate importance score during scan (lazy calculation)
+                            self.calculate_file_importance_score(&mut file_info);
 
                             // Update statistics
                             if let Some(ext) = &file_info.extension {
@@ -146,6 +202,7 @@ impl StructureExtractor {
                             files,
                             file_types,
                             size_distribution,
+                            tracked_files,
                             current_depth + 1,
                             max_depth,
                         )
@@ -222,6 +279,67 @@ impl StructureExtractor {
         }
     }
 
+    fn calculate_file_importance_score(&self, file: &mut FileInfo) {
+        let mut score: f64 = 0.0;
+
+        // Weight based on file location (backend paths preferred)
+        let path_str = file.path.to_string_lossy().to_lowercase();
+        // Backend/Core paths get location bonus
+        if path_str.contains("cmd") || path_str.contains("internal") || path_str.contains("pkg") {
+            score += 0.3;
+        }
+        if path_str.contains("main") || path_str.contains("index") {
+            score += 0.15;
+        }
+        if path_str.contains("config") || path_str.contains("setup") {
+            score += 0.1;
+        }
+
+        // Weight based on file size
+        if file.size > 1024 && file.size < 50 * 1024 {
+            score += 0.15;
+        }
+
+        // Weight based on file type
+        // Backend languages (higher priority): *.py, *.go, *.rs, *.java, *.kt, *.cpp, *.c, etc.
+        // Frontend languages (lower priority): *.ts, *.js, *.tsx, *.jsx, *.vue, *.svelte, etc.
+        if let Some(ref ext) = file.extension {
+            match ext.as_str() {
+                // Backend/Core languages - highest priority
+                "rs" | "py" | "java" | "kt" | "cpp" | "c" | "go" | "rb" | "php" | "m"
+                | "swift" | "dart" | "cs" => score += 0.4,
+                // SQL and database files
+                "sql" | "sqlproj" => score += 0.3,
+                // Frontend frameworks (React/Vue/Svelte) - medium priority
+                "jsx" | "tsx" => score += 0.2,
+                "vue" | "svelte" => score += 0.2,
+                "wxml" | "ttml" | "ksml" => score += 0.2,
+                // JavaScript/TypeScript - lower priority
+                "js" | "ts" | "mjs" | "cjs" => score += 0.15,
+                // .NET project files
+                "csproj" | "sln" => score += 0.2,
+                // Build and package management files
+                "gradle" | "pom" => score += 0.15,
+                "package" => score += 0.15,
+                "lock" => score += 0.05,
+                // Configuration files
+                "toml" | "yaml" | "yml" | "json" | "xml" | "ini" | "env" => score += 0.1,
+                // Style files - lowest priority
+                "css" | "scss" | "sass" | "less" | "styl" | "wxss" => score += 0.05,
+                // Template files
+                "html" | "htm" | "hbs" | "mustache" | "ejs" => score += 0.05,
+                _ => {}
+            }
+        }
+
+        // Bonus for database-related paths
+        if path_str.contains("database") || path_str.contains("schema") || path_str.contains("migrations") {
+            score += 0.15;
+        }
+
+        file.importance_score = score.min(1.0);
+    }
+
     fn should_ignore_directory(&self, dir_name: &str) -> bool {
         let config = &self.context.config;
         let dir_name_lower = dir_name.to_lowercase();
@@ -246,7 +364,7 @@ impl StructureExtractor {
         false
     }
 
-    fn should_ignore_file(&self, path: &PathBuf) -> bool {
+    fn should_ignore_file(&self, path: &PathBuf, tracked_files: &HashMap<PathBuf, ()>) -> bool {
         let config = &self.context.config;
         let file_name = path
             .file_name()
@@ -303,11 +421,9 @@ impl StructureExtractor {
             return true;
         }
 
-        // Check file size
-        if let Ok(metadata) = std::fs::metadata(path) {
-            if metadata.len() > config.max_file_size {
-                return true;
-            }
+        // Check git tracked files (if git_tracked_only is true)
+        if config.git_tracked_only && !tracked_files.is_empty() && !tracked_files.contains_key(path) {
+            return true;
         }
 
         // Check binary files
@@ -320,71 +436,11 @@ impl StructureExtractor {
 
     fn calculate_importance_scores(
         &self,
-        files: &mut [FileInfo],
+        _files: &mut Vec<FileInfo>,
         directories: &mut [DirectoryInfo],
     ) {
-        // Calculate file importance scores
-        for file in files.iter_mut() {
-            let mut score: f64 = 0.0;
-
-            // Weight based on file location
-            let path_str = file.path.to_string_lossy().to_lowercase();
-            if path_str.contains("src") || path_str.contains("lib") {
-                score += 0.3;
-            }
-            if path_str.contains("main") || path_str.contains("index") {
-                score += 0.2;
-            }
-            if path_str.contains("config") || path_str.contains("setup") {
-                score += 0.1;
-            }
-
-            // Weight based on file size
-            if file.size > 1024 && file.size < 50 * 1024 {
-                score += 0.2;
-            }
-
-            // Weight based on file type
-            if let Some(ext) = &file.extension {
-                match ext.as_str() {
-                    // Main programming languages
-                    "rs" | "py" | "java" | "kt" | "cpp" | "c" | "go" | "rb" | "php" | "m"
-                    | "swift" | "dart" | "cs" => score += 0.3,
-                    // React special files
-                    "jsx" | "tsx" => score += 0.3,
-                    // JavaScript/TypeScript ecosystem
-                    "js" | "ts" | "mjs" | "cjs" => score += 0.3,
-                    // Frontend framework files
-                    "vue" | "svelte" => score += 0.3,
-                    // Mini App
-                    "wxml" | "ttml" | "ksml" => score += 0.3,
-                    // SQL and database files
-                    "sql" | "sqlproj" => score += 0.25,
-                    // .NET project files
-                    "csproj" | "sln" => score += 0.2,
-                    // Configuration files
-                    "toml" | "yaml" | "yml" | "json" | "xml" | "ini" | "env" => score += 0.1,
-                    // Build and package management files
-                    "gradle" | "pom" => score += 0.15,
-                    "package" => score += 0.15,
-                    "lock" => score += 0.05,
-                    // Style files
-                    "css" | "scss" | "sass" | "less" | "styl" | "wxss"  => score += 0.1,
-                    // Template files
-                    "html" | "htm" | "hbs" | "mustache" | "ejs" => score += 0.1,
-                    _ => {}
-                }
-            }
-            
-            // Bonus for database-related paths
-            let path_str = file.path.to_string_lossy().to_lowercase();
-            if path_str.contains("database") || path_str.contains("schema") || path_str.contains("migrations") {
-                score += 0.15;
-            }
-
-            file.importance_score = score.min(1.0);
-            file.is_core = score > 0.5;
-        }
+        // File scores are already calculated during scan via calculate_file_importance_score
+        // Only recalculate if files is empty (backward compatible)
 
         // Calculate directory importance scores
         for dir in directories.iter_mut() {
@@ -413,94 +469,21 @@ impl StructureExtractor {
         }
     }
 
-    /// Identify core files
-    pub async fn identify_core_codes(
+    /// Apply directory-level LLM score as an additive boost to file importance scores
+    fn apply_directory_score_boost(
         &self,
-        structure: &ProjectStructure,
-    ) -> Result<Vec<CodeDossier>> {
-        let mut core_codes = Vec::new();
-
-        // Filter core files based on importance score
-        let mut core_files: Vec<_> = structure.files.iter().filter(|f| f.is_core).collect();
-
-        // Sort by importance score in descending order, ensuring the most important components are processed first
-        core_files.sort_by(|a, b| {
-            b.importance_score
-                .partial_cmp(&a.importance_score)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-
-        for file in core_files {
-            let code_purpose = self.determine_code_purpose(file).await;
-
-            // Extract interface information
-            let interfaces = self.extract_file_interfaces(file).await.unwrap_or_default();
-            let interface_names: Vec<String> = interfaces.iter().map(|i| i.name.clone()).collect();
-
-            // Extract core code summary
-            let source_summary =
-                read_code_source(&self.language_processor, &structure.root_path, &file.path, &self.context.config.target_language);
-
-            core_codes.push(CodeDossier {
-                name: file.name.clone(),
-                file_path: file.path.clone(),
-                source_summary,
-                code_purpose,
-                importance_score: file.importance_score,
-                description: None,           // Filled later through LLM analysis
-                functions: Vec::new(),       // Filled later through code analysis
-                interfaces: interface_names, // Interface names extracted from code analysis
-            });
-        }
-
-        Ok(core_codes)
-    }
-
-    async fn determine_code_purpose(&self, file: &FileInfo) -> CodePurpose {
-        // Read file content
-        let file_content = std::fs::read_to_string(&file.path).ok();
-
-        // Use enhanced component type analyzer
-        match self
-            .code_purpose_enhancer
-            .execute(
-                &self.context,
-                &file.path,
-                &file.name,
-                file_content.unwrap_or_default().as_str(),
-            )
-            .await
-        {
-            Ok(code_purpose) => code_purpose,
-            Err(_) => {
-                // Fallback to basic rule mapping
-                CodePurposeMapper::map_by_path_and_name(&file.path.to_string_lossy(), &file.name)
+        files: &mut [FileInfo],
+        dir_scores: &HashMap<PathBuf, f64>,
+    ) {
+        for file in files.iter_mut() {
+            // Find the parent directory of this file
+            if let Some(parent) = file.path.parent() {
+                if let Some(&dir_score) = dir_scores.get(parent) {
+                    // Add 0.1-0.2 boost based on directory score (multiplied by 0.2 for max boost)
+                    let boost = dir_score * 0.2;
+                    file.importance_score = (file.importance_score + boost).min(1.0);
+                }
             }
         }
-    }
-
-    /// Extract file interface information
-    async fn extract_file_interfaces(
-        &self,
-        file: &FileInfo,
-    ) -> Result<Vec<crate::types::code::InterfaceInfo>> {
-        // Build complete file path
-        let full_path = if file.path.is_absolute() {
-            file.path.clone()
-        } else {
-            file.path.clone()
-        };
-
-        // Try to read file content
-        if let Ok(content) = tokio::fs::read_to_string(&full_path).await {
-            // Use language processor to extract interfaces
-            let interfaces = self
-                .language_processor
-                .extract_interfaces(&full_path, &content);
-
-            return Ok(interfaces);
-        }
-
-        Ok(Vec::new())
     }
 }

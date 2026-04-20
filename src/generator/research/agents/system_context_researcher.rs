@@ -58,39 +58,24 @@ Rrequired output style (extremely important):
 - If uncertain, say so briefly rather than padding
 
 You MUST output strict JSON only (no markdown, no code fences, no prose outside JSON).
-The output must include ALL fields exactly as follows:
-{
-  "project_name": "string",
-  "project_description": "string",
-  "project_type": "FrontendApp|BackendService|FullStackApp|ComponentLibrary|Framework|CLITool|MobileApp|DesktopApp|Other",
-  "business_value": "string",
-  "target_users": [
-    {
-      "name": "string",
-      "description": "string",
-      "needs": ["string"]
-    }
-  ],
-  "external_systems": [
-    {
-      "name": "string",
-      "description": "string",
-      "interaction_type": "string"
-    }
-  ],
-  "system_boundary": {
-    "scope": "string",
-    "included_components": ["string"],
-    "excluded_components": ["string"]
-  },
-  "confidence_score": 0.0
-}
+The output must be valid, parseable JSON with these exact fields:
 
-Rules:
-- Always include all fields, even if empty.
-- Use empty string/empty arrays when unknown.
-- Never put plain strings where an object is required.
-- confidence_score must be a number from 0.0 to 10.0.
+Required JSON fields:
+- project_name: string
+- project_description: string
+- project_type: one of FrontendApp|BackendService|FullStackApp|ComponentLibrary|Framework|CLITool|MobileApp|DesktopApp|Other
+- business_value: string
+- target_users: array of {name: string, description: string, needs: array of string}
+- external_systems: array of {name: string, description: string, interaction_type: string}
+- system_boundary: OBJECT with {scope: string, included_components: array of string, excluded_components: array of string}
+- confidence_score: number between 0.0 and 10.0
+
+CRITICAL RULES:
+- system_boundary must be a JSON OBJECT, NOT a string
+- Do NOT stringify or escape nested objects
+- Do NOT use code fences or markdown formatting around JSON
+- Always output all fields, use empty arrays/strings if unknown
+- confidence_score must be a number, not a string
 
 Generate Output as JSON per existing schema."#
                 .to_string(),

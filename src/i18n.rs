@@ -287,17 +287,17 @@ impl TargetLanguage {
         }
     }
 
-    /// Performing AI analysis
+    /// Performing AI analysis — {} = progress, {} = path
     pub fn msg_ai_analyzing(&self) -> &'static str {
         match self {
-            TargetLanguage::Chinese => "   🤖 正在进行AI分析: {}",
-            TargetLanguage::English => "   🤖 Performing AI analysis: {}",
-            TargetLanguage::Japanese => "   🤖 AI分析を実行中: {}",
-            TargetLanguage::Korean => "   🤖 AI 분석 수행 중: {}",
-            TargetLanguage::German => "   🤖 Führe KI-Analyse durch: {}",
-            TargetLanguage::French => "   🤖 Analyse IA en cours: {}",
-            TargetLanguage::Russian => "   🤖 Выполнение AI-анализа: {}",
-            TargetLanguage::Vietnamese => "   🤖 Đang thực hiện phân tích AI: {}",
+            TargetLanguage::Chinese => "   🤖 正在进行AI分析 [{}/{}]: {}",
+            TargetLanguage::English => "   🤖 Performing AI analysis [{}/{}]: {}",
+            TargetLanguage::Japanese => "   🤖 AI分析を実行中 [{}/{}]: {}",
+            TargetLanguage::Korean => "   🤖 AI 분석 수행 중 [{}/{}]: {}",
+            TargetLanguage::German => "   🤖 Führe KI-Analyse durch [{}/{}]: {}",
+            TargetLanguage::French => "   🤖 Analyse IA en cours [{}/{}]: {}",
+            TargetLanguage::Russian => "   🤖 Выполнение AI-анализа [{}/{}]: {}",
+            TargetLanguage::Vietnamese => "   🤖 Đang thực hiện phân tích AI [{}/{}]: {}",
         }
     }
 
@@ -358,6 +358,7 @@ impl TargetLanguage {
     }
 
     /// Cannot read file
+    #[allow(dead_code)]
     pub fn msg_cannot_read_file(&self) -> &'static str {
         match self {
             TargetLanguage::Chinese => "无法读取文件: {}",
@@ -368,20 +369,6 @@ impl TargetLanguage {
             TargetLanguage::French => "Impossible de lire le fichier: {}",
             TargetLanguage::Russian => "Не удается прочитать файл: {}",
             TargetLanguage::Vietnamese => "Không thể đọc tệp: {}",
-        }
-    }
-
-    /// AI service call error
-    pub fn msg_ai_service_error(&self) -> &'static str {
-        match self {
-            TargetLanguage::Chinese => "❌ 调用模型服务出错，尝试 {} 次均失败...{}",
-            TargetLanguage::English => "❌ AI service call failed after {} attempts...{}",
-            TargetLanguage::Japanese => "❌ モデルサービスの呼び出しに失敗しました。{} 回の試行に失敗...{}",
-            TargetLanguage::Korean => "❌ 모델 서비스 호출 오류, {} 번의 시도 모두 실패...{}",
-            TargetLanguage::German => "❌ Fehler beim Aufruf des Modell-Service, {} Versuche fehlgeschlagen...{}",
-            TargetLanguage::French => "❌ Erreur d'appel du service de modèle, {} tentatives échouées...{}",
-            TargetLanguage::Russian => "❌ Ошибка вызова модельного сервиса, {} попыток неудачно...{}",
-            TargetLanguage::Vietnamese => "❌ Lỗi gọi dịch vụ mô hình, thất bại sau {} lần thử...{}",
         }
     }
 

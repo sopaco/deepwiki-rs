@@ -6,7 +6,8 @@ use crate::generator::{
         AgentDataConfig, DataSource, FormatterConfig, LLMCallMode, PromptTemplate, StepForwardAgent,
     },
 };
-use crate::types::code::{CodeInsight, CodePurpose};
+use crate::types::code::CodePurpose;
+use crate::types::{CodeAndDirectoryInsights, FileInsight};
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 
@@ -161,18 +162,20 @@ impl BoundaryAnalyzer {
     async fn filter_boundary_code_insights(
         &self,
         context: &GeneratorContext,
-    ) -> Result<Vec<CodeInsight>> {
+    ) -> Result<Vec<FileInsight>> {
         let all_insights = context
-            .get_from_memory::<Vec<CodeInsight>>(MemoryScope::PREPROCESS, ScopedKeys::CODE_INSIGHTS)
+            .get_from_memory::<CodeAndDirectoryInsights>(MemoryScope::PREPROCESS, ScopedKeys::CODE_INSIGHTS)
             .await
             .ok_or_else(|| anyhow!("CODE_INSIGHTS not found in PREPROCESS memory"))?;
 
-        // Filter boundary-related code
-        let boundary_insights: Vec<CodeInsight> = all_insights
-            .into_iter()
-            .filter(|insight| {
+        // Flatten all file_insights from directory_dossiers and filter by boundary-related purpose
+        let boundary_insights: Vec<FileInsight> = all_insights
+            .directory_insights
+            .iter()
+            .flat_map(|d| d.file_insights.iter())
+            .filter(|fi| {
                 matches!(
-                    insight.code_dossier.code_purpose,
+                    fi.code_purpose,
                     CodePurpose::Entry
                         | CodePurpose::Api
                         | CodePurpose::Config
@@ -180,20 +183,8 @@ impl BoundaryAnalyzer {
                         | CodePurpose::Controller
                 )
             })
+            .cloned()
             .collect();
-
-        // Sort by importance
-        let mut sorted_insights = boundary_insights;
-        sorted_insights.sort_by(|a, b| {
-            b.code_dossier
-                .importance_score
-                .partial_cmp(&a.code_dossier.importance_score)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
-        
-        // Use configuration value for max boundary insights
-        let max_insights = context.config.boundary_analysis.max_boundary_insights;
-        sorted_insights.truncate(max_insights);
 
         // Group by type and count
         let mut entry_count = 0;
@@ -201,8 +192,8 @@ impl BoundaryAnalyzer {
         let mut config_count = 0;
         let mut router_count = 0;
 
-        for insight in &sorted_insights {
-            match insight.code_dossier.code_purpose {
+        for fi in &boundary_insights {
+            match fi.code_purpose {
                 CodePurpose::Entry => entry_count += 1,
                 CodePurpose::Api => api_count += 1,
                 CodePurpose::Config => config_count += 1,
@@ -217,11 +208,11 @@ impl BoundaryAnalyzer {
             entry_count, api_count, config_count, router_count
         );
 
-        Ok(sorted_insights)
+        Ok(boundary_insights)
     }
 
     /// Format boundary code insights - specialized formatting logic
-    fn format_boundary_insights(&self, insights: &[CodeInsight]) -> String {
+    fn format_boundary_insights(&self, insights: &[FileInsight]) -> String {
         let mut content = String::from("### Boundary-Related Code Insights\n");
 
         // Group by CodePurpose for display
@@ -230,13 +221,13 @@ impl BoundaryAnalyzer {
         let mut config_codes = Vec::new();
         let mut router_codes = Vec::new();
 
-        for insight in insights {
-            match insight.code_dossier.code_purpose {
-                CodePurpose::Entry => entry_codes.push(insight),
-                CodePurpose::Api => api_codes.push(insight),
-                CodePurpose::Controller => api_codes.push(insight),
-                CodePurpose::Config => config_codes.push(insight),
-                CodePurpose::Router => router_codes.push(insight),
+        for fi in insights {
+            match fi.code_purpose {
+                CodePurpose::Entry => entry_codes.push(fi),
+                CodePurpose::Api => api_codes.push(fi),
+                CodePurpose::Controller => api_codes.push(fi),
+                CodePurpose::Config => config_codes.push(fi),
+                CodePurpose::Router => router_codes.push(fi),
                 _ => {}
             }
         }
@@ -244,32 +235,32 @@ impl BoundaryAnalyzer {
         if !entry_codes.is_empty() {
             content.push_str("#### Entry Point Code (Entry)\n");
             content.push_str("These code usually contain CLI command definitions, main function entry points, etc.:\n\n");
-            for insight in entry_codes {
-                self.add_boundary_insight_item(&mut content, insight);
+            for fi in entry_codes {
+                self.add_boundary_insight_item(&mut content, fi);
             }
         }
 
         if !api_codes.is_empty() {
             content.push_str("#### API/Controller Code (API/Controller)\n");
             content.push_str("These code usually contain HTTP endpoints, API routes, controller logic, etc.:\n\n");
-            for insight in api_codes {
-                self.add_boundary_insight_item(&mut content, insight);
+            for fi in api_codes {
+                self.add_boundary_insight_item(&mut content, fi);
             }
         }
 
         if !config_codes.is_empty() {
             content.push_str("#### Configuration-Related Code (Config)\n");
             content.push_str("These code usually contain configuration structures, parameter definitions, environment variables, etc.:\n\n");
-            for insight in config_codes {
-                self.add_boundary_insight_item(&mut content, insight);
+            for fi in config_codes {
+                self.add_boundary_insight_item(&mut content, fi);
             }
         }
 
         if !router_codes.is_empty() {
             content.push_str("#### Router-Related Code (Router)\n");
             content.push_str("These code usually contain route definitions, middleware, request handling, etc.:\n\n");
-            for insight in router_codes {
-                self.add_boundary_insight_item(&mut content, insight);
+            for fi in router_codes {
+                self.add_boundary_insight_item(&mut content, fi);
             }
         }
 
@@ -278,26 +269,28 @@ impl BoundaryAnalyzer {
     }
 
     /// Add single boundary code insight item with full context
-    fn add_boundary_insight_item(&self, content: &mut String, insight: &CodeInsight) {
+    fn add_boundary_insight_item(&self, content: &mut String, fi: &FileInsight) {
         content.push_str(&format!(
             "**File**: `{}` (Importance: {:.2}, Purpose: {:?})\n",
-            insight.code_dossier.file_path.to_string_lossy(),
-            insight.code_dossier.importance_score,
-            insight.code_dossier.code_purpose
+            fi.file_path.to_string_lossy(),
+            fi.importance_score,
+            fi.code_purpose
         ));
 
-        if !insight.detailed_description.is_empty() {
-            content.push_str(&format!("- **Description**: {}\n", insight.detailed_description));
+        if !fi.detailed_description.is_empty() {
+            content.push_str(&format!("- **Description**: {}\n", fi.detailed_description));
+        } else if !fi.summary.is_empty() {
+            content.push_str(&format!("- **Description**: {}\n", fi.summary));
         }
 
-        if !insight.responsibilities.is_empty() {
-            content.push_str(&format!("- **Responsibilities**: {}\n", insight.responsibilities.join(", ")));
+        if !fi.responsibilities.is_empty() {
+            content.push_str(&format!("- **Responsibilities**: {}\n", fi.responsibilities.join(", ")));
         }
 
         // Include detailed interface information for CLI/API extraction
-        if !insight.interfaces.is_empty() {
+        if !fi.interfaces.is_empty() {
             content.push_str("- **Interfaces/Functions**:\n");
-            for interface in &insight.interfaces {
+            for interface in &fi.interfaces {
                 content.push_str(&format!("  - `{}` ({})", interface.name, interface.interface_type));
                 if !interface.parameters.is_empty() {
                     let params: Vec<String> = interface.parameters.iter()
@@ -313,9 +306,9 @@ impl BoundaryAnalyzer {
         }
 
         // Include dependencies for understanding external integrations
-        if !insight.dependencies.is_empty() {
+        if !fi.dependencies.is_empty() {
             content.push_str("- **Key Dependencies**: ");
-            let dep_names: Vec<&str> = insight.dependencies.iter()
+            let dep_names: Vec<&str> = fi.dependencies.iter()
                 .filter(|d| d.is_external)
                 .map(|d| d.name.as_str())
                 .take(10)
@@ -324,10 +317,10 @@ impl BoundaryAnalyzer {
         }
 
         // Always include source summary for boundary analysis
-        if !insight.code_dossier.source_summary.is_empty() {
+        if !fi.source_summary.is_empty() {
             content.push_str(&format!(
                 "- **Source Code**:\n```\n{}\n```\n",
-                insight.code_dossier.source_summary
+                fi.source_summary
             ));
         }
 

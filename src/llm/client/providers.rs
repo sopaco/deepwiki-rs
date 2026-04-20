@@ -72,7 +72,14 @@ impl ProviderClient {
                 Ok(ProviderClient::OpenRouter(client))
             }
             LLMProvider::Anthropic => {
-                let client = rig::providers::anthropic::Client::new(&config.api_key)?;
+                let client = if config.api_base_url != "https://api.anthropic.com" {
+                    rig::providers::anthropic::Client::builder()
+                        .api_key(&config.api_key)
+                        .base_url(&config.api_base_url)
+                        .build()?
+                } else {
+                    rig::providers::anthropic::Client::new(&config.api_key)?
+                };
                 Ok(ProviderClient::Anthropic(client))
             }
             LLMProvider::Gemini => {
@@ -226,7 +233,8 @@ impl ProviderClient {
                 let mut builder = client
                     .agent(model)
                     .preamble(system_prompt)
-                    .max_tokens(config.max_tokens.into());
+                    .max_tokens(config.max_tokens.into())
+                    .default_max_turns(config.max_turns);
 
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
@@ -248,7 +256,8 @@ impl ProviderClient {
                 let mut builder = client
                     .agent(model)
                     .preamble(system_prompt)
-                    .max_tokens(config.max_tokens.into());
+                    .max_tokens(config.max_tokens.into())
+                    .default_max_turns(config.max_turns);
 
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
@@ -265,7 +274,8 @@ impl ProviderClient {
                 let mut builder = client
                     .agent(model)
                     .preamble(system_prompt)
-                    .max_tokens(config.max_tokens.into());
+                    .max_tokens(config.max_tokens.into())
+                    .default_max_turns(config.max_turns);
 
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
@@ -281,7 +291,8 @@ impl ProviderClient {
             ProviderClient::Mistral(client) => {
                 let mut builder = client
                     .agent(model)
-                    .preamble(system_prompt);
+                    .preamble(system_prompt)
+                    .default_max_turns(config.max_turns);
 
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
@@ -297,7 +308,8 @@ impl ProviderClient {
             ProviderClient::OpenRouter(client) => {
                 let mut builder = client
                     .agent(model)
-                    .preamble(system_prompt);
+                    .preamble(system_prompt)
+                    .default_max_turns(config.max_turns);
 
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
@@ -314,7 +326,8 @@ impl ProviderClient {
                 let mut builder = client
                     .agent(model)
                     .preamble(system_prompt)
-                    .max_tokens(config.max_tokens.into());
+                    .max_tokens(config.max_tokens.into())
+                    .default_max_turns(config.max_turns);
 
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
@@ -334,7 +347,8 @@ impl ProviderClient {
                 let mut builder = client
                     .agent(model)
                     .preamble(system_prompt)
-                    .max_tokens(config.max_tokens.into());
+                    .max_tokens(config.max_tokens.into())
+                    .default_max_turns(config.max_turns);
 
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
@@ -352,7 +366,8 @@ impl ProviderClient {
                 let mut builder = client
                     .agent(model)
                     .preamble(system_prompt)
-                    .max_tokens(config.max_tokens.into());
+                    .max_tokens(config.max_tokens.into())
+                    .default_max_turns(config.max_turns);
 
                 if let Some(temp) = config.temperature {
                     builder = builder.temperature(temp);
@@ -502,18 +517,19 @@ pub enum ProviderAgent {
 
 impl ProviderAgent {
     /// Execute prompt with HTTP fallback for OpenAI-compatible providers
-    pub async fn prompt(&self, prompt: &str) -> Result<String> {
+    pub async fn prompt(&self, prompt: &str, concurrency: usize) -> Result<String> {
         match self {
             ProviderAgent::OpenAI { agent, base_url, model, api_key } => {
-                // Try rig agent first
-                match agent.prompt(prompt).await {
+                // Try rig agent first with concurrency
+                match agent.prompt(prompt).with_tool_concurrency(concurrency).await {
                     Ok(result) => Ok(result),
                     Err(e) => {
                         let error_msg = format!("{:?}", e);
                         // Check if it's an API response parsing error
-                        if error_msg.contains("ApiResponse") 
+                        if error_msg.contains("ApiResponse")
                             || error_msg.contains("untagged enum")
-                            || error_msg.contains("JsonError") {
+                            || error_msg.contains("JsonError")
+                        {
                             // Fallback to direct HTTP call
                             Self::prompt_via_http(base_url, model, api_key, prompt).await
                         } else {
@@ -522,13 +538,27 @@ impl ProviderAgent {
                     }
                 }
             }
-            ProviderAgent::Moonshot(agent) => agent.prompt(prompt).await.map_err(|e| e.into()),
-            ProviderAgent::DeepSeek(agent) => agent.prompt(prompt).await.map_err(|e| e.into()),
-            ProviderAgent::Mistral(agent) => agent.prompt(prompt).await.map_err(|e| e.into()),
-            ProviderAgent::OpenRouter(agent) => agent.prompt(prompt).await.map_err(|e| e.into()),
-            ProviderAgent::Anthropic(agent) => agent.prompt(prompt).await.map_err(|e| e.into()),
-            ProviderAgent::Gemini(agent) => agent.prompt(prompt).await.map_err(|e| e.into()),
-            ProviderAgent::Ollama(agent) => agent.prompt(prompt).await.map_err(|e| e.into()),
+            ProviderAgent::Moonshot(agent) => {
+                agent.prompt(prompt).with_tool_concurrency(concurrency).await.map_err(|e| e.into())
+            }
+            ProviderAgent::DeepSeek(agent) => {
+                agent.prompt(prompt).with_tool_concurrency(concurrency).await.map_err(|e| e.into())
+            }
+            ProviderAgent::Mistral(agent) => {
+                agent.prompt(prompt).with_tool_concurrency(concurrency).await.map_err(|e| e.into())
+            }
+            ProviderAgent::OpenRouter(agent) => {
+                agent.prompt(prompt).with_tool_concurrency(concurrency).await.map_err(|e| e.into())
+            }
+            ProviderAgent::Anthropic(agent) => {
+                agent.prompt(prompt).with_tool_concurrency(concurrency).await.map_err(|e| e.into())
+            }
+            ProviderAgent::Gemini(agent) => {
+                agent.prompt(prompt).with_tool_concurrency(concurrency).await.map_err(|e| e.into())
+            }
+            ProviderAgent::Ollama(agent) => {
+                agent.prompt(prompt).with_tool_concurrency(concurrency).await.map_err(|e| e.into())
+            }
         }
     }
 

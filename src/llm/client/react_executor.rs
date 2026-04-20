@@ -25,7 +25,7 @@ impl ReActExecutor {
             );
         }
 
-        match agent.prompt(user_prompt).await {
+        match agent.prompt(user_prompt, config.concurrency).await {
             Ok(response) => {
                 if config.verbose {
                     println!("   ✅ Agent task completed");

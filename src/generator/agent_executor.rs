@@ -10,6 +10,8 @@ pub struct AgentExecuteParams {
     pub prompt_user: String,
     pub cache_scope: String,
     pub log_tag: String,
+    /// Optional progress info as (current, total)
+    pub progress: Option<(usize, usize)>,
 }
 
 pub async fn prompt(context: &GeneratorContext, params: AgentExecuteParams) -> Result<String> {
@@ -32,7 +34,12 @@ pub async fn prompt(context: &GeneratorContext, params: AgentExecuteParams) -> R
         return Ok(cached_reply.to_string());
     }
 
-    let msg = context.config.target_language.msg_ai_analyzing().replace("{}", log_tag);
+    let (current, total) = params.progress.unwrap_or((0, 0));
+    let msg = context.config.target_language.msg_ai_analyzing();
+    let msg = msg
+        .replacen("{}", &current.to_string(), 1)
+        .replacen("{}", &total.to_string(), 1)
+        .replacen("{}", log_tag, 1);
     println!("{}", msg);
 
     let reply = context
@@ -79,7 +86,12 @@ pub async fn prompt_with_tools(
         return Ok(cached_reply.to_string());
     }
 
-    let msg = context.config.target_language.msg_ai_analyzing().replace("{}", log_tag);
+    let (current, total) = params.progress.unwrap_or((0, 0));
+    let msg = context.config.target_language.msg_ai_analyzing();
+    let msg = msg
+        .replacen("{}", &current.to_string(), 1)
+        .replacen("{}", &total.to_string(), 1)
+        .replacen("{}", log_tag, 1);
     println!("{}", msg);
 
     let reply = context
@@ -127,7 +139,12 @@ where
         return Ok(cached_reply);
     }
 
-    let msg = context.config.target_language.msg_ai_analyzing().replace("{}", log_tag);
+    let (current, total) = params.progress.unwrap_or((0, 0));
+    let msg = context.config.target_language.msg_ai_analyzing();
+    let msg = msg
+        .replacen("{}", &current.to_string(), 1)
+        .replacen("{}", &total.to_string(), 1)
+        .replacen("{}", log_tag, 1);
     println!("{}", msg);
 
     let reply = context
