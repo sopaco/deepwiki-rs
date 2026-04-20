@@ -37,6 +37,15 @@ impl RelationshipsAnalyze {
         // Check if we need two-phase approach
         if index_size > index_threshold {
             // Phase 1: LLM selection
+            let over_kb = (index_size - index_threshold) / 1024;
+            println!(
+                "   📋 Index too large: {} dirs, {} KB (limit {} KB, exceeded by {} KB) — running Directory Selection...",
+                directory_dossiers.len(),
+                index_size / 1024,
+                index_threshold / 1024,
+                over_kb,
+            );
+
             let selection = self
                 .select_directories_and_files(context, directory_dossiers, &index_content)
                 .await?;
@@ -49,6 +58,52 @@ impl RelationshipsAnalyze {
                     &selection,
                 )
                 .await?;
+
+            // Calculate selected content size
+            let selected_dir_set: std::collections::HashSet<_> =
+                selection.selected_directories.iter().collect();
+            let selected_files_map: std::collections::HashMap<_, _> = selection
+                .selected_files
+                .iter()
+                .map(|sf| (&sf.dir_path, &sf.file_names))
+                .collect();
+            let selected_content: String = directory_dossiers
+                .iter()
+                .filter(|d| selected_dir_set.contains(&d.path))
+                .map(|dossier| {
+                    let file_names = selected_files_map.get(&dossier.path);
+                    let file_insights: Vec<_> = dossier
+                        .file_insights
+                        .iter()
+                        .filter(|fi| {
+                            file_names
+                                .map(|names| names.contains(&fi.name))
+                                .unwrap_or(false)
+                        })
+                        .collect();
+                    let files_str = file_insights
+                        .iter()
+                        .map(|fi| format!("  - {}: {}", fi.name, fi.summary))
+                        .collect::<Vec<_>>()
+                        .join("\n");
+                    format!(
+                        "### {} (purpose: {:?}, importance: {:.2})\nDirectory summary: {}\nPer-file insights:\n{}",
+                        dossier.name,
+                        dossier.purpose,
+                        dossier.importance_score,
+                        dossier.summary,
+                        files_str
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n\n");
+            let selected_kb = selected_content.len() / 1024;
+            let selected_dir_count = selection.selected_directories.len();
+            let selected_file_count: usize = selection.selected_files.iter().map(|sf| sf.file_names.len()).sum();
+            println!(
+                "   ✅ Selected {} dirs, {} files — analysis content: {} KB",
+                selected_dir_count, selected_file_count, selected_kb,
+            );
 
             // Phase 2: analysis with selected subset
             let agent_params = self
