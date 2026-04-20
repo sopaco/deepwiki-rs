@@ -145,8 +145,9 @@ async fn generate_directory_dossiers(
     let summarizer = DirectorySummarizer::new();
     let config = &context.config;
     let mut dossiers = Vec::new();
+    let total_dirs = project_structure.directories.len();
 
-    for dir in &project_structure.directories {
+    for (idx, dir) in project_structure.directories.iter().enumerate() {
         // Read all files in this directory from disk
         let mut files = read_directory_files(&dir.path, config)?;
 
@@ -162,7 +163,10 @@ async fn generate_directory_dossiers(
 
         if total_size <= MAX_BATCH_SIZE {
             // Single batch
-            match summarizer.summarize_directory(context, dir, &files).await {
+            match summarizer
+                .summarize_directory(context, dir, &files, Some((idx + 1, total_dirs)))
+                .await
+            {
                 Ok(dossier) => dossiers.push(dossier),
                 Err(e) => {
                     eprintln!(
@@ -177,7 +181,10 @@ async fn generate_directory_dossiers(
             let batches = split_into_batches(&files, MAX_BATCH_SIZE);
             if batches.len() == 1 {
                 // Edge case: single file exceeds 256KB
-                match summarizer.summarize_directory(context, dir, &files).await {
+                match summarizer
+                    .summarize_directory(context, dir, &files, Some((idx + 1, total_dirs)))
+                    .await
+                {
                     Ok(dossier) => dossiers.push(dossier),
                     Err(e) => {
                         eprintln!(
@@ -188,7 +195,10 @@ async fn generate_directory_dossiers(
                     }
                 }
             } else {
-                match summarizer.summarize_batch(context, dir, &batches).await {
+                match summarizer
+                    .summarize_batch(context, dir, &batches, Some((idx + 1, total_dirs)))
+                    .await
+                {
                     Ok(dossier) => dossiers.push(dossier),
                     Err(e) => {
                         eprintln!(

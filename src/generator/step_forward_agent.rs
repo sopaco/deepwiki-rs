@@ -672,6 +672,7 @@ pub trait StepForwardAgent: Send + Sync {
             prompt_user: user_prompt,
             cache_scope: format!("{}/{}", self.memory_scope_key(), agent_type_value.as_str()),
             log_tag,
+            progress: None,
         };
 
         let result_value = match template.llm_call_mode {

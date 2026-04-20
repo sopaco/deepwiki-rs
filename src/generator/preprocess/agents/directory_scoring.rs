@@ -94,6 +94,7 @@ impl DirectoryScorer {
                 prompt_user,
                 cache_scope: cache_scope.to_string(),
                 log_tag,
+                progress: None,
             },
         )
         .await?;

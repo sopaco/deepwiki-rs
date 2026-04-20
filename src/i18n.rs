@@ -287,17 +287,17 @@ impl TargetLanguage {
         }
     }
 
-    /// Performing AI analysis
+    /// Performing AI analysis — {} = progress, {} = path
     pub fn msg_ai_analyzing(&self) -> &'static str {
         match self {
-            TargetLanguage::Chinese => "   🤖 正在进行AI分析: {}",
-            TargetLanguage::English => "   🤖 Performing AI analysis: {}",
-            TargetLanguage::Japanese => "   🤖 AI分析を実行中: {}",
-            TargetLanguage::Korean => "   🤖 AI 분석 수행 중: {}",
-            TargetLanguage::German => "   🤖 Führe KI-Analyse durch: {}",
-            TargetLanguage::French => "   🤖 Analyse IA en cours: {}",
-            TargetLanguage::Russian => "   🤖 Выполнение AI-анализа: {}",
-            TargetLanguage::Vietnamese => "   🤖 Đang thực hiện phân tích AI: {}",
+            TargetLanguage::Chinese => "   🤖 正在进行AI分析 [{}/{}]: {}",
+            TargetLanguage::English => "   🤖 Performing AI analysis [{}/{}]: {}",
+            TargetLanguage::Japanese => "   🤖 AI分析を実行中 [{}/{}]: {}",
+            TargetLanguage::Korean => "   🤖 AI 분석 수행 중 [{}/{}]: {}",
+            TargetLanguage::German => "   🤖 Führe KI-Analyse durch [{}/{}]: {}",
+            TargetLanguage::French => "   🤖 Analyse IA en cours [{}/{}]: {}",
+            TargetLanguage::Russian => "   🤖 Выполнение AI-анализа [{}/{}]: {}",
+            TargetLanguage::Vietnamese => "   🤖 Đang thực hiện phân tích AI [{}/{}]: {}",
         }
     }
 

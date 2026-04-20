@@ -143,6 +143,7 @@ Output JSON selecting the key directories and per-directory file selection."#,
             prompt_user,
             cache_scope: "directory_selection".to_string(),
             log_tag: "Directory Selection".to_string(),
+            progress: None,
         };
 
         extract::<DirectorySelection>(context, agent_params).await
@@ -227,6 +228,7 @@ Generate a project-level dependency relationship graph, focusing on:
             prompt_user,
             cache_scope: "ai_relationships_insights".to_string(),
             log_tag: "Dependency Relationship Analysis".to_string(),
+            progress: None,
         })
     }
 
@@ -350,6 +352,7 @@ Generate a project-level dependency relationship graph, focusing on:
             prompt_user,
             cache_scope: "ai_relationships_insights_selected".to_string(),
             log_tag: "Dependency Relationship Analysis (selected)".to_string(),
+            progress: None,
         })
     }
 

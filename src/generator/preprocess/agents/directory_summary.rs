@@ -179,6 +179,7 @@ impl DirectorySummarizer {
         context: &GeneratorContext,
         dir_info: &crate::types::DirectoryInfo,
         files: &[FileContent],
+        progress: Option<(usize, usize)>,
     ) -> Result<DirectoryDossier> {
         let prompt_sys =
             "You are a professional software architecture analyst skilled at summarizing code directories."
@@ -186,7 +187,7 @@ impl DirectorySummarizer {
         let prompt_user = self.build_summary_prompt(dir_info, files, 1, 1);
 
         let cache_scope = "directory_summary";
-        let log_tag = dir_info.name.clone();
+        let log_tag = dir_info.path.to_string_lossy().to_string();
 
         let response: DirectorySummaryResponse = extract(
             context,
@@ -195,6 +196,7 @@ impl DirectorySummarizer {
                 prompt_user,
                 cache_scope: cache_scope.to_string(),
                 log_tag,
+                progress,
             },
         )
         .await?;
@@ -261,6 +263,7 @@ impl DirectorySummarizer {
         context: &GeneratorContext,
         dir_info: &crate::types::DirectoryInfo,
         batches: &[Vec<FileContent>],
+        progress: Option<(usize, usize)>,
     ) -> Result<DirectoryDossier> {
         let mut all_key_files = Vec::new();
         let mut all_summaries = Vec::new();
@@ -279,7 +282,8 @@ impl DirectorySummarizer {
                     prompt_sys,
                     prompt_user,
                     cache_scope: "directory_summary".to_string(),
-                    log_tag: dir_info.name.clone(),
+                    log_tag: dir_info.path.to_string_lossy().to_string(),
+                    progress,
                 },
             )
             .await?;

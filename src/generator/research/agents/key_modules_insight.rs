@@ -249,6 +249,7 @@ impl KeyModulesInsight {
                 domain.name
             ),
             log_tag: format!("{} domain analysis", domain.name),
+            progress: None,
         };
 
         println!("🤖 Analyzing '{}' domain...", domain.name);
