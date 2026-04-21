@@ -33,3 +33,7 @@ litho.docs/
 litho.toml
 .vs/*
 
+
+# IDE & Agent Project Settings
+.marscode/
+.omc/
