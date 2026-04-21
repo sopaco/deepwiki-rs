@@ -9,7 +9,7 @@ repository = "https://github.com/sopaco/deepwiki-rs"
 
 [dependencies]
 # rig
-rig-core = "0.34"
+rig-core = "0.35"
 
 # 网络
 reqwest = { version = "0.12", features = ["json"] }

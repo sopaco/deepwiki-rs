@@ -287,17 +287,17 @@ impl TargetLanguage {
         }
     }
 
-    /// Performing AI analysis
+    /// Performing AI analysis — {} = current, {} = total, {} = path
     pub fn msg_ai_analyzing(&self) -> &'static str {
         match self {
-            TargetLanguage::Chinese => "   🤖 正在进行AI分析: {}",
-            TargetLanguage::English => "   🤖 Performing AI analysis: {}",
-            TargetLanguage::Japanese => "   🤖 AI分析を実行中: {}",
-            TargetLanguage::Korean => "   🤖 AI 분석 수행 중: {}",
-            TargetLanguage::German => "   🤖 Führe KI-Analyse durch: {}",
-            TargetLanguage::French => "   🤖 Analyse IA en cours: {}",
-            TargetLanguage::Russian => "   🤖 Выполнение AI-анализа: {}",
-            TargetLanguage::Vietnamese => "   🤖 Đang thực hiện phân tích AI: {}",
+            TargetLanguage::Chinese => "   🤖 正在进行AI分析 [{}/{}]: {}",
+            TargetLanguage::English => "   🤖 Performing AI analysis [{}/{}]: {}",
+            TargetLanguage::Japanese => "   🤖 AI分析を実行中 [{}/{}]: {}",
+            TargetLanguage::Korean => "   🤖 AI 분석 수행 중 [{}/{}]: {}",
+            TargetLanguage::German => "   🤖 Führe KI-Analyse durch [{}/{}]: {}",
+            TargetLanguage::French => "   🤖 Analyse IA en cours [{}/{}]: {}",
+            TargetLanguage::Russian => "   🤖 Выполнение AI-анализа [{}/{}]: {}",
+            TargetLanguage::Vietnamese => "   🤖 Đang thực hiện phân tích AI [{}/{}]: {}",
         }
     }
 
@@ -358,6 +358,7 @@ impl TargetLanguage {
     }
 
     /// Cannot read file
+    #[allow(dead_code)]
     pub fn msg_cannot_read_file(&self) -> &'static str {
         match self {
             TargetLanguage::Chinese => "无法读取文件: {}",
@@ -368,20 +369,6 @@ impl TargetLanguage {
             TargetLanguage::French => "Impossible de lire le fichier: {}",
             TargetLanguage::Russian => "Не удается прочитать файл: {}",
             TargetLanguage::Vietnamese => "Không thể đọc tệp: {}",
-        }
-    }
-
-    /// AI service call error
-    pub fn msg_ai_service_error(&self) -> &'static str {
-        match self {
-            TargetLanguage::Chinese => "❌ 调用模型服务出错，尝试 {} 次均失败...{}",
-            TargetLanguage::English => "❌ AI service call failed after {} attempts...{}",
-            TargetLanguage::Japanese => "❌ モデルサービスの呼び出しに失敗しました。{} 回の試行に失敗...{}",
-            TargetLanguage::Korean => "❌ 모델 서비스 호출 오류, {} 번의 시도 모두 실패...{}",
-            TargetLanguage::German => "❌ Fehler beim Aufruf des Modell-Service, {} Versuche fehlgeschlagen...{}",
-            TargetLanguage::French => "❌ Erreur d'appel du service de modèle, {} tentatives échouées...{}",
-            TargetLanguage::Russian => "❌ Ошибка вызова модельного сервиса, {} попыток неудачно...{}",
-            TargetLanguage::Vietnamese => "❌ Lỗi gọi dịch vụ mô hình, thất bại sau {} lần thử...{}",
         }
     }
 
@@ -487,20 +474,6 @@ impl TargetLanguage {
             TargetLanguage::French => "⚠️ Erreur survenue lors de la réparation du diagramme mermaid: {}",
             TargetLanguage::Russian => "⚠️ Ошибка при восстановлении диаграммы mermaid: {}",
             TargetLanguage::Vietnamese => "⚠️ Lỗi xảy ra trong quá trình sửa chữa sơ đồ mermaid: {}",
-        }
-    }
-
-    /// Mermaid fixer not installed
-    pub fn msg_mermaid_not_installed(&self) -> &'static str {
-        match self {
-            TargetLanguage::Chinese => "⚠️ 警告: mermaid-fixer 未安装或不可用，跳过mermaid图表修复",
-            TargetLanguage::English => "⚠️ Warning: mermaid-fixer not installed or unavailable, skipping mermaid diagram repair",
-            TargetLanguage::Japanese => "⚠️ 警告: mermaid-fixer がインストールされていないか利用できません、mermaidダイアグラムの修復をスキップします",
-            TargetLanguage::Korean => "⚠️ 경고: mermaid-fixer가 설치되지 않았거나 사용할 수 없습니다. mermaid 다이어그램 복구를 건너뜁니다",
-            TargetLanguage::German => "⚠️ Warnung: mermaid-fixer nicht installiert oder nicht verfügbar, überspringe Mermaid-Diagrammreparatur",
-            TargetLanguage::French => "⚠️ Avertissement: mermaid-fixer non installé ou indisponible, réparation du diagramme mermaid ignorée",
-            TargetLanguage::Russian => "⚠️ Предупреждение: mermaid-fixer не установлен или недоступен, пропуск восстановления диаграммы mermaid",
-            TargetLanguage::Vietnamese => "⚠️ Cảnh báo: mermaid-fixer chưa cài đặt hoặc không khả dụng, bỏ qua sửa chữa sơ đồ mermaid",
         }
     }
 

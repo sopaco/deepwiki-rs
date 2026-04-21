@@ -71,7 +71,9 @@ If available:
 - Use Markdown format
 - Include appropriate heading levels
 - Use code blocks to show examples
-- Ensure logical and readable content"#.to_string(),
+- Ensure logical and readable content
+
+IMPORTANT: Do not use transition phrases like "Now I have gathered comprehensive information" or "I have collected enough details" - start writing the documentation directly."#.to_string(),
 
             opening_instruction: "Based on the following boundary analysis results, generate system boundary interface documentation:".to_string(),
 

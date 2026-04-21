@@ -11,6 +11,8 @@ pub struct ReActConfig {
     pub verbose: bool,
     /// Whether to enable summary reasoning fallover mechanism
     pub enable_summary_reasoning: bool,
+    /// Concurrency level for tool execution
+    pub concurrency: usize,
 }
 
 impl Default for ReActConfig {
@@ -19,6 +21,7 @@ impl Default for ReActConfig {
             max_iterations: 10,
             verbose: cfg!(debug_assertions),
             enable_summary_reasoning: true,
+            concurrency: 4,
         }
     }
 }

@@ -122,7 +122,9 @@ impl StepForwardAgent for KeyModuleInsightEditor {
         );
 
         PromptTemplate {
-            system_prompt: r#"You are a software expert skilled at writing technical documentation. Based on the research materials and requirements provided by users, write technical documentation for the technical implementation of corresponding modules in existing projects"#.to_string(),
+            system_prompt: r#"You are a software expert skilled at writing technical documentation. Based on the research materials and requirements provided by users, write technical documentation for the technical implementation of corresponding modules in existing projects.
+
+IMPORTANT: Do not use transition phrases like "Now I have gathered comprehensive information" or "I have collected enough details" - start writing the documentation directly."#.to_string(),
 
             opening_instruction,
 

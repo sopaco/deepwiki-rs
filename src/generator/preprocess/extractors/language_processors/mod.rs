@@ -15,6 +15,7 @@ pub trait LanguageProcessor: Send + Sync + std::fmt::Debug {
     fn determine_component_type(&self, file_path: &Path, content: &str) -> String;
 
     /// Identify important code lines
+    #[allow(dead_code)]
     fn is_important_line(&self, line: &str) -> bool;
 
     /// Get language name
@@ -90,6 +91,7 @@ impl LanguageProcessorManager {
     }
 
     /// Identify important code lines
+    #[allow(dead_code)]
     pub fn is_important_line(&self, file_path: &Path, line: &str) -> bool {
         if let Some(processor) = self.get_processor(file_path) {
             processor.is_important_line(line)

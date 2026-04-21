@@ -46,6 +46,12 @@ pub async fn launch(c: &Config) -> Result<()> {
     let overall_start = Instant::now();
 
     let config = c.clone();
+
+    // Check mermaid-fixer availability at startup
+    if !crate::generator::outlet::MermaidFixer::is_available().await {
+        anyhow::bail!("mermaid-fixer is not installed. Run 'cargo install mermaid-fixer' to install it");
+    }
+
     let llm_client = LLMClient::new(config.clone())?;
     let cache_manager = Arc::new(RwLock::new(CacheManager::new(
         config.cache.clone(),

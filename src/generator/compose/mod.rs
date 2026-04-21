@@ -8,7 +8,8 @@ use crate::generator::context::GeneratorContext;
 use crate::generator::outlet::DocTree;
 use crate::generator::preprocess::memory::{MemoryScope, ScopedKeys};
 use crate::generator::step_forward_agent::StepForwardAgent;
-use crate::types::code::{CodeInsight, CodePurpose};
+use crate::types::code::CodePurpose;
+use crate::types::{CodeAndDirectoryInsights, DirectoryPurpose};
 use anyhow::Result;
 
 mod agents;
@@ -53,13 +54,17 @@ impl DocumentationComposer {
     /// Check if the project has database-related files
     async fn has_database_files(&self, context: &GeneratorContext) -> bool {
         if let Some(insights) = context
-            .get_from_memory::<Vec<CodeInsight>>(MemoryScope::PREPROCESS, ScopedKeys::CODE_INSIGHTS)
+            .get_from_memory::<CodeAndDirectoryInsights>(MemoryScope::PREPROCESS, ScopedKeys::CODE_INSIGHTS)
             .await
         {
-            insights.iter().any(|insight| {
-                matches!(insight.code_dossier.code_purpose, CodePurpose::Database)
-                    || insight.code_dossier.file_path.to_string_lossy().ends_with(".sql")
-                    || insight.code_dossier.file_path.to_string_lossy().ends_with(".sqlproj")
+            insights.directory_insights.iter().any(|dossier| {
+                dossier.purpose == DirectoryPurpose::Database
+                    || dossier.name.to_lowercase().contains("database")
+                    || dossier.name.to_lowercase().contains("db")
+            }) || insights.directory_insights.iter().flat_map(|d| d.file_insights.iter()).any(|fi| {
+                fi.code_purpose == CodePurpose::Database
+                    || fi.file_path.to_string_lossy().ends_with(".sql")
+                    || fi.file_path.to_string_lossy().ends_with(".sqlproj")
             })
         } else {
             false

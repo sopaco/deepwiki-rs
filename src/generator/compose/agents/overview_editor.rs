@@ -72,7 +72,9 @@ If available:
 - Include appropriate heading levels and chapter organization
 - Provide clear diagrams and visual content
 - Ensure content logic is clear and expression is accurate
-- Maintain consistency with external documentation when available"#.to_string(),
+- Maintain consistency with external documentation when available
+
+IMPORTANT: Do not use transition phrases like "Now I have gathered comprehensive information" or "I have collected enough details" - start writing the documentation directly."#.to_string(),
 
             opening_instruction: r#"Based on the following research materials, write a complete, in-depth, and detailed C4 SystemContext architecture document:
 
