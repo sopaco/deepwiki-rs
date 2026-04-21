@@ -84,7 +84,7 @@ impl StructureExtractor {
         // Apply LLM directory scoring boost to all directories
         match self.directory_scorer.score_directories(&self.context, &directories).await {
             Ok(dir_scores) => {
-                self.apply_directory_score_boost(&mut files, &dir_scores);
+                self.apply_directory_score_boost(&mut files, &dir_scores, project_path);
             }
             Err(e) => {
                 eprintln!("⚠️  Directory scoring failed: {}, skipping", e);
@@ -474,11 +474,13 @@ impl StructureExtractor {
         &self,
         files: &mut [FileInfo],
         dir_scores: &HashMap<PathBuf, f64>,
+        root_path: &PathBuf,
     ) {
         for file in files.iter_mut() {
-            // Find the parent directory of this file
+            // file.path is relative; dir_scores keys are absolute — normalize before lookup
             if let Some(parent) = file.path.parent() {
-                if let Some(&dir_score) = dir_scores.get(parent) {
+                let absolute_parent = root_path.join(parent);
+                if let Some(&dir_score) = dir_scores.get(&absolute_parent) {
                     // Add 0.1-0.2 boost based on directory score (multiplied by 0.2 for max boost)
                     let boost = dir_score * 0.2;
                     file.importance_score = (file.importance_score + boost).min(1.0);
