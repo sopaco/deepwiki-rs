@@ -169,7 +169,7 @@ impl BoundaryAnalyzer {
             .ok_or_else(|| anyhow!("CODE_INSIGHTS not found in PREPROCESS memory"))?;
 
         // Flatten all file_insights from directory_dossiers and filter by boundary-related purpose
-        let boundary_insights: Vec<FileInsight> = all_insights
+        let mut boundary_insights: Vec<FileInsight> = all_insights
             .directory_insights
             .iter()
             .flat_map(|d| d.file_insights.iter())
@@ -185,6 +185,13 @@ impl BoundaryAnalyzer {
             })
             .cloned()
             .collect();
+
+        // Sort by importance_score descending and limit to code_insights_limit
+        let limit = context.config.boundary_analysis.code_insights_limit;
+        boundary_insights.sort_by(|a, b| {
+            b.importance_score.partial_cmp(&a.importance_score).unwrap_or(std::cmp::Ordering::Equal)
+        });
+        boundary_insights.truncate(limit);
 
         // Group by type and count
         let mut entry_count = 0;

@@ -61,7 +61,8 @@ impl DirectoryScorer {
         }
 
         let prompt_sys = "You are a professional code architecture analyst specializing in evaluating the business importance of code directories.".to_string();
-        let prompt_user = self.build_scoring_prompt(directories);
+        let project_path = &context.config.project_path;
+        let prompt_user = self.build_scoring_prompt(directories, project_path);
 
         let cache_scope = format!(
             "directory_scoring_{}",
@@ -73,7 +74,6 @@ impl DirectoryScorer {
             .file_name()
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_else(|| "unknown".to_string());
-        let project_path = &context.config.project_path;
         let dir_list: String = directories
             .iter()
             .take(5)
@@ -135,9 +135,12 @@ impl DirectoryScorer {
         Ok(scores)
     }
 
-    fn build_scoring_prompt(&self, directories: &[DirectoryInfo]) -> String {
+    fn build_scoring_prompt(&self, directories: &[DirectoryInfo], project_path: &PathBuf) -> String {
         let mut dir_list = String::new();
         for dir in directories {
+            let relative_path = dir.path.strip_prefix(project_path)
+                .map(|p| p.to_string_lossy().into_owned())
+                .unwrap_or_else(|_| dir.name.clone());
             let file_names: Vec<String> = std::fs::read_dir(&dir.path)
                 .ok()
                 .map(|entries| {
@@ -151,8 +154,9 @@ impl DirectoryScorer {
                 .unwrap_or_default();
 
             dir_list.push_str(&format!(
-                "- {} ({} files, {} subdirs): {:?}\n",
+                "- {} (rel_path: {}, {} files, {} subdirs): {:?}\n",
                 dir.name,
+                relative_path,
                 dir.file_count,
                 dir.subdirectory_count,
                 file_names
@@ -171,7 +175,7 @@ IMPORTANT: Backend directories (*.py, *.go, *.rs, *.java, *.kt, etc.) should be 
 Directories to rate:
 {}
 
-Output JSON with a "scores" array keyed by directory name, each entry with "path", "score" (0.0-1.0) and "reasoning":
+Output JSON with a "scores" array, each entry with "path" (use the exact rel_path shown), "score" (0.0-1.0) and "reasoning":
 {{"scores": [{{"path": "src", "score": 0.8, "reasoning": "..."}}, {{"path": "cmd", "score": 0.7, "reasoning": "..."}}, ...]}}
 
 IMPORTANT: Output valid JSON only, no markdown fences."#,

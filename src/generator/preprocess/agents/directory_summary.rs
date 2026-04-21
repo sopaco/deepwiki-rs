@@ -514,7 +514,7 @@ IMPORTANT: Output valid JSON only, no markdown fences."#,
             dir_info.subdirectory_count,
             batch_idx,
             total_batches,
-            file_list,
+            total_batches,
             file_list
         )
     }
