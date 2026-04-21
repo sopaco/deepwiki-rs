@@ -72,7 +72,12 @@ impl ProviderClient {
                 Ok(ProviderClient::OpenRouter(client))
             }
             LLMProvider::Anthropic => {
-                let client = if config.api_base_url != "https://api.anthropic.com" {
+                // Only override base_url if it looks like an Anthropic endpoint.
+                // This prevents accidentally using a non-Anthropic URL (e.g., modelscope)
+                // when api_base_url is set to a global default.
+                let use_custom_url = config.api_base_url != "https://api.anthropic.com"
+                    && (config.api_base_url.contains("anthropic") || config.api_base_url.contains("anthropic.com"));
+                let client = if use_custom_url {
                     rig::providers::anthropic::Client::builder()
                         .api_key(&config.api_key)
                         .base_url(&config.api_base_url)

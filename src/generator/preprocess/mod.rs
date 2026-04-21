@@ -75,11 +75,7 @@ impl Generator<PreprocessingResult> for PreProcessAgent {
         let relationships_analyzer = RelationshipsAnalyze::new();
         let relationships = relationships_analyzer
             .execute(&context, &directory_dossiers)
-            .await
-            .unwrap_or_else(|e| {
-                eprintln!("⚠️  Failed to generate relationships: {}, continuing without", e);
-                crate::types::code_releationship::RelationshipAnalysis::default()
-            });
+            .await?;
 
         let processing_time = start_time.elapsed().as_secs_f64();
 
@@ -220,7 +216,7 @@ fn read_directory_files(
     dir_path: &std::path::PathBuf,
     config: &crate::config::Config,
 ) -> Result<Vec<FileContent>> {
-    use crate::utils::file_utils::is_binary_file_path;
+    use crate::utils::file_utils::{is_binary_file_path, is_test_file};
 
     let mut files = Vec::new();
 
@@ -263,29 +259,47 @@ fn read_directory_files(
                 }
             }
 
+            // Skip hidden files (unless include_hidden is set)
+            if !config.include_hidden && file_name.starts_with('.') {
+                continue;
+            }
+
+            // Skip test files (unless include_tests is set)
+            if !config.include_tests && is_test_file(&path) {
+                continue;
+            }
+
             if let Ok(metadata) = std::fs::metadata(&path) {
-                let size = metadata.len() as usize;
-                // Skip files larger than max_file_size
-                if size > config.max_file_size as usize {
-                    continue;
-                }
-                if let Ok(content) = std::fs::read_to_string(&path) {
-                    let name = path
-                        .file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .to_string();
-                    // Truncate per-file at 256KB for prompt
-                    let truncated = if content.chars().count() > 256 * 1024 {
-                        content.chars().take(256 * 1024).collect()
-                    } else {
-                        content
-                    };
-                    files.push(FileContent {
-                        name,
-                        path,
-                        content: truncated,
-                    });
+                let file_size = metadata.len() as usize;
+                let name = path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
+
+                // Read up to max_file_size bytes (not the full file for oversized files)
+                let max_read_size = config.max_file_size as usize;
+                let read_size = file_size.min(max_read_size);
+
+                if let Ok(mut file) = std::fs::File::open(&path) {
+                    use std::io::Read;
+                    let mut buffer = vec![0u8; read_size];
+                    if let Ok(bytes_read) = file.read(&mut buffer) {
+                        buffer.truncate(bytes_read);
+                        // Decode to string, handling potential UTF-8 issues
+                        let content = String::from_utf8_lossy(&buffer).into_owned();
+                        // Truncate per-file at 256KB for prompt (but only if under max_file_size, otherwise we already truncated at max_file_size)
+                        let truncated = if content.chars().count() > 256 * 1024 {
+                            content.chars().take(256 * 1024).collect()
+                        } else {
+                            content
+                        };
+                        files.push(FileContent {
+                            name,
+                            path,
+                            content: truncated,
+                        });
+                    }
                 }
             }
         }

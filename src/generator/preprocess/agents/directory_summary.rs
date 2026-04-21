@@ -510,11 +510,11 @@ IMPORTANT: Output valid JSON only, no markdown fences."#,
             dir_info.name,
             batch_note,
             dir_info.name,
-            dir_info.name,
             dir_info.file_count,
             dir_info.subdirectory_count,
             batch_idx,
             total_batches,
+            file_list,
             file_list
         )
     }

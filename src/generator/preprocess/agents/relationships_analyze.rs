@@ -9,6 +9,10 @@ use crate::{
     utils::prompt_compressor::{CompressionConfig, PromptCompressor},
 };
 
+/// Maximum index content size in characters before switching to two-phase selection.
+/// This is a prompt/index size limit, independent of max_file_size (which is a per-file disk read limit).
+const MAX_INDEX_CHARS: usize = 100_000;
+
 pub struct RelationshipsAnalyze {
     prompt_compressor: PromptCompressor,
 }
@@ -32,7 +36,7 @@ impl RelationshipsAnalyze {
         // Build index (metadata only, no per-file details)
         let index_content = self.build_index_content(directory_dossiers);
         let index_size = index_content.len();
-        let index_threshold = context.config.max_file_size as usize;
+        let index_threshold = MAX_INDEX_CHARS;
 
         // Check if we need two-phase approach
         if index_size > index_threshold {
@@ -168,7 +172,7 @@ Rules:
 - Prefer directories with high architectural significance over generic utility dirs
 - For each selected directory, pick the 3-5 most important files (highest score or most central to the architecture)
 - Limit to 20 directories maximum; 5-10 is preferred
-- Use relative paths matching exactly those in the index"#
+- Use absolute paths matching exactly those in the index"#
             .to_string();
 
         let compression_result = self

@@ -166,7 +166,8 @@ impl StructureExtractor {
                     // Check size before any other processing to avoid OOM
                     if let Ok(metadata) = std::fs::metadata(&path) {
                         if metadata.len() > self.context.config.max_file_size.into() {
-                            return Ok(());
+                            // Skip oversized files but continue scanning remaining entries
+                            continue;
                         }
                         // Check if this file should be ignored
                         if !self.should_ignore_file(&path, tracked_files) {
