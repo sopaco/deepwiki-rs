@@ -104,6 +104,7 @@ pub struct Config {
     pub include_hidden: bool,
 
     /// Whether to only include files tracked by git (ignore untracked files)
+    #[serde(default)]
     pub git_tracked_only: bool,
 
     /// Directories to exclude
