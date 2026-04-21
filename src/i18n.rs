@@ -477,20 +477,6 @@ impl TargetLanguage {
         }
     }
 
-    /// Mermaid fixer not installed
-    pub fn msg_mermaid_not_installed(&self) -> &'static str {
-        match self {
-            TargetLanguage::Chinese => "⚠️ 警告: mermaid-fixer 未安装或不可用，跳过mermaid图表修复",
-            TargetLanguage::English => "⚠️ Warning: mermaid-fixer not installed or unavailable, skipping mermaid diagram repair",
-            TargetLanguage::Japanese => "⚠️ 警告: mermaid-fixer がインストールされていないか利用できません、mermaidダイアグラムの修復をスキップします",
-            TargetLanguage::Korean => "⚠️ 경고: mermaid-fixer가 설치되지 않았거나 사용할 수 없습니다. mermaid 다이어그램 복구를 건너뜁니다",
-            TargetLanguage::German => "⚠️ Warnung: mermaid-fixer nicht installiert oder nicht verfügbar, überspringe Mermaid-Diagrammreparatur",
-            TargetLanguage::French => "⚠️ Avertissement: mermaid-fixer non installé ou indisponible, réparation du diagramme mermaid ignorée",
-            TargetLanguage::Russian => "⚠️ Предупреждение: mermaid-fixer не установлен или недоступен, пропуск восстановления диаграммы mermaid",
-            TargetLanguage::Vietnamese => "⚠️ Cảnh báo: mermaid-fixer chưa cài đặt hoặc không khả dụng, bỏ qua sửa chữa sơ đồ mermaid",
-        }
-    }
-
     /// Summary reasoning failed
     pub fn msg_summary_reasoning_failed(&self) -> &'static str {
         match self {
