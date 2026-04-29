@@ -105,10 +105,7 @@ impl LLMClient {
                 Ok(r) => Ok(r),
                 Err(e) => match fallover_model {
                     Some(ref model) => {
-                        let msg = self.config.target_language.msg_ai_service_error()
-                            .replacen("{}", &llm_config.retry_attempts.to_string(), 1)
-                            .replacen("{}", &format!(" trying fallback model {}...{}", model, e), 1);
-                        eprintln!("{}", msg);
+                        eprintln!("⚠️ Main model failed, switching to fallback model {}...", model);
                         let user_prompt_with_fixer = format!("{}\n\n**Notice** There was an error during my previous LLM call, error message: \"{}\". Please ensure you avoid this error this time", user_prompt, e);
                         Box::pin(self.extract_inner(
                             system_prompt,
@@ -118,13 +115,7 @@ impl LLMClient {
                         ))
                         .await
                     }
-                    None => {
-                        let msg = self.config.target_language.msg_ai_service_error()
-                            .replacen("{}", &llm_config.retry_attempts.to_string(), 1)
-                            .replacen("{}", &e.to_string(), 1);
-                        eprintln!("{}", msg);
-                        Err(e.into())
-                    }
+                    None => Err(e.into()),
                 },
             }
         })
@@ -133,7 +124,8 @@ impl LLMClient {
 
     /// Intelligent dialogue method (using default ReAct configuration)
     pub async fn prompt(&self, system_prompt: &str, user_prompt: &str) -> Result<String> {
-        let react_config = ReActConfig::default();
+        let mut react_config = ReActConfig::default();
+        react_config.concurrency = self.config.llm.tool_concurrency;
         let response = self
             .prompt_with_react(system_prompt, user_prompt, react_config)
             .await?;
@@ -237,7 +229,7 @@ impl LLMClient {
         let agent_builder = self.get_agent_builder();
         let agent = agent_builder.build_agent_without_tools(system_prompt);
 
-        self.retry_with_backoff(|| async { agent.prompt(user_prompt).await.map_err(|e| e.into()) })
+        self.retry_with_backoff(|| async { agent.prompt(user_prompt, 1).await.map_err(|e| e.into()) })
             .await
     }
 }

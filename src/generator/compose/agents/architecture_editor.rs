@@ -86,7 +86,8 @@ You need to generate complete architecture documentation conforming to the C4 mo
 4. **Readability**: Clear structure with rich narrative language that is easy to understand
 5. **Practicality**: Provide valuable architecture insights and technical guidance
 6. **Consistency**: Maintain alignment with external documentation when available
-"#.to_string(),
+
+IMPORTANT: Do not use transition phrases like "Now I have gathered comprehensive information" or "I have collected enough details" - start writing the documentation directly."#.to_string(),
 
             opening_instruction: r#"Based on the following research materials, write a complete, in-depth, and detailed C4 architecture document. Please carefully analyze all provided research reports and extract key architectural information:
 

@@ -23,27 +23,28 @@ target_language = "en"
 # Analysis Configuration
 # ============================================================================
 
-# Analyze code dependencies between modules
-analyze_dependencies = true
+# Analyze code dependencies between modules (default: true)
+# analyze_dependencies = true
 
-# Identify and analyze core components
-identify_components = true
+# Identify and analyze core components (default: true)
+# identify_components = true
 
-# Maximum directory depth to scan
-max_depth = 10
+# Maximum directory depth to scan (default: 10)
+# max_depth = 10
 
-# Percentage threshold for identifying core components (0-100)
-core_component_percentage = 40.0
 
-# Maximum file size to analyze (in bytes)
-# Default: 65536 (64KB)
-max_file_size = 65536
+# Maximum file size to analyze in bytes (default: 524288 = 512KB)
+# max_file_size = 524288
 
-# Include test files in analysis
-include_tests = false
+# Include test files in analysis (default: false)
+# include_tests = false
 
-# Include hidden files (starting with .)
-include_hidden = false
+# Include hidden files (starting with .) (default: false)
+# include_hidden = false
+
+# Only include files tracked by git (default: true)
+# Set to false to include untracked files
+# git_tracked_only = true
 
 # Directories to exclude from analysis
 excluded_dirs = [
@@ -171,51 +172,36 @@ timeout_seconds = 300
 # Disable preset tools (advanced option)
 disable_preset_tools = false
 
-# Maximum number of parallel LLM requests
-max_parallels = 3
+# Maximum number of parallel LLM requests (default: 3)
+# max_parallels = 3
+
+# Tool call concurrency in ReAct loops (default: 4)
+# tool_concurrency = 4
 
 # ============================================================================
 # Cache Configuration
 # ============================================================================
-
-[cache]
-# Enable caching of LLM responses
-enabled = true
-
-# Directory to store cache files
-cache_dir = ".litho/cache"
-
-# Cache expiration time in hours
-# Default: 8760 (365 days)
-expire_hours = 8760
+# Cache settings (all have defaults, uncomment to override)
+#
+# [cache]
+# enabled: Enable caching (default: true)
+# cache_dir: Cache directory (default: ".litho/cache")
+# expire_hours: Cache expiration in hours (default: 8760 = 365 days)
 
 # ============================================================================
 # Boundary Analysis Configuration
 # ============================================================================
 # Controls how boundary interfaces (CLI, API, Router) are analyzed
 # Reducing these values can significantly speed up processing and reduce timeout risk
-
-[boundary_analysis]
-# Maximum number of boundary code insights to analyze
-# Lower values = faster processing, less risk of timeout
-# Higher values = more comprehensive analysis
-# Default: 15, Recommended for large projects: 10-15
-max_boundary_insights = 15
-
-# Code insights limit for formatting in prompts
-# Controls the detail level in boundary analysis
-# Default: 25, Recommended for large projects: 20-30
-code_insights_limit = 25
-
-# Whether to include full source code in boundary analysis
-# Setting to false significantly reduces token usage and processing time
-# Default: false, Recommended for large projects: false
-include_source_code = false
-
-# Only show directories when file count exceeds this threshold
-# Helps avoid information overload for large codebases
-# Default: 100, Recommended for large projects: 50-100
-only_directories_when_files_more_than = 100
+#
+# [boundary_analysis]
+# Controls how boundary interfaces (CLI, API, Router) are analyzed
+# Reducing these values can significantly speed up processing and reduce timeout risk
+#
+# max_boundary_insights: Maximum number of boundary code insights (default: 15)
+# code_insights_limit: Code insights limit for prompts (default: 25)
+# include_source_code: Include full source code (default: false)
+# only_directories_when_files_more_than: Threshold (default: 100)
 
 # === Quick Fix for 504 Gateway Timeout Errors ===
 # If you're experiencing timeout errors during boundary analysis:

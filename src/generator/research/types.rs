@@ -86,6 +86,51 @@ where
     }
 }
 
+fn deserialize_system_boundary_lenient<'de, D>(
+    deserializer: D,
+) -> Result<SystemBoundary, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let value = serde_json::Value::deserialize(deserializer)?;
+    match value {
+        serde_json::Value::Object(_map) => {
+            // Normal case: already an object, deserialize fields directly
+            Ok(SystemBoundary {
+                scope: _map.get("scope")
+                    .and_then(|v| v.as_str())
+                    .map(String::from)
+                    .unwrap_or_default(),
+                included_components: _map.get("included_components")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                    .unwrap_or_default(),
+                excluded_components: _map.get("excluded_components")
+                    .and_then(|v| v.as_array())
+                    .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                    .unwrap_or_default(),
+            })
+        }
+        serde_json::Value::String(s) => {
+            // LLM returned JSON string instead of object - try to parse it
+            if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&s) {
+                Ok(SystemBoundary {
+                    scope: parsed.get("scope").and_then(|v| v.as_str()).map(String::from).unwrap_or_default(),
+                    included_components: parsed.get("included_components").and_then(|v| v.as_array())
+                        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                        .unwrap_or_default(),
+                    excluded_components: parsed.get("excluded_components").and_then(|v| v.as_array())
+                        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
+                        .unwrap_or_default(),
+                })
+            } else {
+                Err(serde::de::Error::custom("Failed to parse system_boundary from string"))
+            }
+        }
+        _ => Err(serde::de::Error::custom("system_boundary must be an object or string")),
+    }
+}
+
 fn deserialize_project_type_lenient<'de, D>(deserializer: D) -> Result<ProjectType, D::Error>
 where
     D: Deserializer<'de>,
@@ -959,7 +1004,7 @@ pub struct SystemContextReport {
     pub target_users: Vec<UserPersona>,
     #[serde(default, deserialize_with = "deserialize_vec_external_system_lenient")]
     pub external_systems: Vec<ExternalSystem>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_system_boundary_lenient")]
     pub system_boundary: SystemBoundary,
     #[serde(default, deserialize_with = "deserialize_f64_lenient")]
     pub confidence_score: f64,

@@ -6,7 +6,8 @@ use crate::generator::{
         AgentDataConfig, DataSource, FormatterConfig, LLMCallMode, PromptTemplate, StepForwardAgent,
     },
 };
-use crate::types::code::{CodeInsight, CodePurpose};
+use crate::types::code::CodePurpose;
+use crate::types::{CodeAndDirectoryInsights, FileInsight};
 use anyhow::{Result, anyhow};
 use async_trait::async_trait;
 
@@ -246,71 +247,60 @@ impl DatabaseOverviewAnalyzer {
     async fn filter_database_code_insights(
         &self,
         context: &GeneratorContext,
-    ) -> Result<Vec<CodeInsight>> {
+    ) -> Result<Vec<FileInsight>> {
         let all_insights = context
-            .get_from_memory::<Vec<CodeInsight>>(MemoryScope::PREPROCESS, ScopedKeys::CODE_INSIGHTS)
+            .get_from_memory::<CodeAndDirectoryInsights>(MemoryScope::PREPROCESS, ScopedKeys::CODE_INSIGHTS)
             .await
             .ok_or_else(|| anyhow!("CODE_INSIGHTS not found in PREPROCESS memory"))?;
 
-        // Filter database-related code
-        let mut database_insights: Vec<CodeInsight> = all_insights
-            .into_iter()
-            .filter(|insight| {
+        // Flatten all file_insights from directory_dossiers and filter by database-related purpose
+        let database_insights: Vec<FileInsight> = all_insights
+            .directory_insights
+            .iter()
+            .flat_map(|d| d.file_insights.iter())
+            .filter(|fi| {
                 // First check file size to exclude extremely large files
-                let source_len = insight.code_dossier.source_summary.len();
+                let source_len = fi.source_summary.len();
                 if source_len > 50000 {
                     return false; // Skip files with source summaries larger than 50KB
                 }
 
-                // Include files with Database purpose
-                matches!(insight.code_dossier.code_purpose, CodePurpose::Database)
-                    // Also include DAO files as they often reflect database structure
-                    || matches!(insight.code_dossier.code_purpose, CodePurpose::Dao)
-                    // Include files with SQL-related component types
-                    || insight.code_dossier.file_path.to_string_lossy().ends_with(".sql")
-                    || insight.code_dossier.file_path.to_string_lossy().ends_with(".sqlproj")
+                // Include files with Database or DAO purpose
+                matches!(fi.code_purpose, CodePurpose::Database | CodePurpose::Dao)
+                    // Include files with SQL-related file extensions
+                    || fi.file_path.to_string_lossy().ends_with(".sql")
+                    || fi.file_path.to_string_lossy().ends_with(".sqlproj")
             })
+            .cloned()
             .collect();
 
         // Truncate source summaries for remaining files to prevent token overflow
-        for insight in &mut database_insights {
-            let source_len = insight.code_dossier.source_summary.len();
-            if source_len > 10000 {
-                // If source summary is very large, truncate it to first 10KB
-                let truncated: String = insight.code_dossier.source_summary.chars().take(10000).collect();
-                insight.code_dossier.source_summary = truncated;
-
-                // Add a note that the content was truncated
-                if !insight.code_dossier.source_summary.is_empty() {
-                    insight.code_dossier.source_summary.push_str("\n\n[Content truncated for analysis]");
+        let mut truncated: Vec<FileInsight> = database_insights
+            .into_iter()
+            .map(|mut fi| {
+                if fi.source_summary.len() > 10000 {
+                    fi.source_summary = fi.source_summary.chars().take(10000).collect::<String>();
+                    fi.source_summary.push_str("\n\n[Content truncated for analysis]");
                 }
-            }
-        }
-
-        // Sort by importance
-        let mut sorted_insights = database_insights;
-        sorted_insights.sort_by(|a, b| {
-            b.code_dossier
-                .importance_score
-                .partial_cmp(&a.code_dossier.importance_score)
-                .unwrap_or(std::cmp::Ordering::Equal)
-        });
+                fi
+            })
+            .collect();
 
         // Take up to 50 most important to prevent token overflow
-        sorted_insights.truncate(50);
+        truncated.truncate(50);
 
         // Group by type and count
         let mut sqlproj_count = 0;
         let mut sql_count = 0;
         let mut dao_count = 0;
 
-        for insight in &sorted_insights {
-            let path = insight.code_dossier.file_path.to_string_lossy();
+        for fi in &truncated {
+            let path = fi.file_path.to_string_lossy();
             if path.ends_with(".sqlproj") {
                 sqlproj_count += 1;
             } else if path.ends_with(".sql") {
                 sql_count += 1;
-            } else if matches!(insight.code_dossier.code_purpose, CodePurpose::Dao) {
+            } else if matches!(fi.code_purpose, CodePurpose::Dao) {
                 dao_count += 1;
             }
         }
@@ -320,11 +310,11 @@ impl DatabaseOverviewAnalyzer {
             sqlproj_count, sql_count, dao_count
         );
 
-        Ok(sorted_insights)
+        Ok(truncated)
     }
 
     /// Format database code insights
-    fn format_database_insights(&self, insights: &[CodeInsight]) -> String {
+    fn format_database_insights(&self, insights: &[FileInsight]) -> String {
         let mut content = String::from("### Database-Related Code Insights\n\n");
 
         // Group by type
@@ -336,26 +326,26 @@ impl DatabaseOverviewAnalyzer {
         let mut other_sql = Vec::new();
         let mut dao_files = Vec::new();
 
-        for insight in insights {
-            let path = insight.code_dossier.file_path.to_string_lossy().to_lowercase();
+        for fi in insights {
+            let path = fi.file_path.to_string_lossy().to_lowercase();
 
             if path.ends_with(".sqlproj") {
-                projects.push(insight);
+                projects.push(fi);
             } else if path.ends_with(".sql") {
                 // Categorize SQL files by content/path
-                if path.contains("table") || insight.code_dossier.name.to_lowercase().contains("table") {
-                    tables.push(insight);
-                } else if path.contains("view") || insight.code_dossier.name.to_lowercase().contains("view") {
-                    views.push(insight);
+                if path.contains("table") || fi.name.to_lowercase().contains("table") {
+                    tables.push(fi);
+                } else if path.contains("view") || fi.name.to_lowercase().contains("view") {
+                    views.push(fi);
                 } else if path.contains("procedure") || path.contains("storedproc") || path.contains("sproc") {
-                    procedures.push(insight);
+                    procedures.push(fi);
                 } else if path.contains("function") {
-                    functions.push(insight);
+                    functions.push(fi);
                 } else {
-                    other_sql.push(insight);
+                    other_sql.push(fi);
                 }
-            } else if matches!(insight.code_dossier.code_purpose, CodePurpose::Dao) {
-                dao_files.push(insight);
+            } else if matches!(fi.code_purpose, CodePurpose::Dao) {
+                dao_files.push(fi);
             }
         }
 
@@ -363,56 +353,56 @@ impl DatabaseOverviewAnalyzer {
         if !projects.is_empty() {
             content.push_str("#### Database Projects (.sqlproj)\n");
             content.push_str("These are SQL Server Database Projects:\n\n");
-            for insight in projects {
-                self.add_insight_item(&mut content, insight);
+            for fi in projects {
+                self.add_insight_item(&mut content, fi);
             }
         }
 
         if !tables.is_empty() {
             content.push_str("#### Table Definitions\n");
             content.push_str("SQL files containing table definitions:\n\n");
-            for insight in tables {
-                self.add_insight_item(&mut content, insight);
+            for fi in tables {
+                self.add_insight_item(&mut content, fi);
             }
         }
 
         if !views.is_empty() {
             content.push_str("#### View Definitions\n");
             content.push_str("SQL files containing view definitions:\n\n");
-            for insight in views {
-                self.add_insight_item(&mut content, insight);
+            for fi in views {
+                self.add_insight_item(&mut content, fi);
             }
         }
 
         if !procedures.is_empty() {
             content.push_str("#### Stored Procedures\n");
             content.push_str("SQL files containing stored procedure definitions:\n\n");
-            for insight in procedures {
-                self.add_insight_item(&mut content, insight);
+            for fi in procedures {
+                self.add_insight_item(&mut content, fi);
             }
         }
 
         if !functions.is_empty() {
             content.push_str("#### Functions\n");
             content.push_str("SQL files containing function definitions:\n\n");
-            for insight in functions {
-                self.add_insight_item(&mut content, insight);
+            for fi in functions {
+                self.add_insight_item(&mut content, fi);
             }
         }
 
         if !other_sql.is_empty() {
             content.push_str("#### Other SQL Files\n");
             content.push_str("Other SQL scripts and files:\n\n");
-            for insight in other_sql {
-                self.add_insight_item(&mut content, insight);
+            for fi in other_sql {
+                self.add_insight_item(&mut content, fi);
             }
         }
 
         if !dao_files.is_empty() {
             content.push_str("#### Data Access Objects (DAO)\n");
             content.push_str("Code files that interact with the database:\n\n");
-            for insight in dao_files {
-                self.add_insight_item(&mut content, insight);
+            for fi in dao_files {
+                self.add_insight_item(&mut content, fi);
             }
         }
 
@@ -452,34 +442,27 @@ impl DatabaseOverviewAnalyzer {
     }
 
     /// Add single insight item to content
-    fn add_insight_item(&self, content: &mut String, insight: &CodeInsight) {
+    fn add_insight_item(&self, content: &mut String, fi: &FileInsight) {
         content.push_str(&format!(
             "- **{}** (`{}`)\n",
-            insight.code_dossier.name,
-            insight.code_dossier.file_path.display()
+            fi.name,
+            fi.file_path.display()
         ));
 
-        if let Some(desc) = &insight.code_dossier.description {
-            content.push_str(&format!("  - Description: {}\n", desc));
+        if !fi.summary.is_empty() {
+            content.push_str(&format!("  - Description: {}\n", fi.summary));
         }
 
-        // Add interface information for SQL objects
-        if !insight.code_dossier.interfaces.is_empty() {
-            content.push_str("  - SQL Objects: ");
-            content.push_str(&insight.code_dossier.interfaces.join(", "));
-            content.push_str("\n");
-        }
-
-        // Add source summary if available (only for high-importance files)
-        if !insight.code_dossier.source_summary.is_empty() && insight.code_dossier.importance_score > 0.5 {
+        // Add source summary if available
+        if !fi.source_summary.is_empty() {
             content.push_str("  - Source Preview:\n");
-            content.push_str(&format!("    ```{}\n", self.determine_code_language(&insight.code_dossier.file_path)));
+            content.push_str(&format!("    ```{}\n", self.determine_code_language(&fi.file_path)));
             // Limit to first 150 chars to reduce token usage
-            let preview: String = insight.code_dossier.source_summary.chars().take(150).collect();
+            let preview: String = fi.source_summary.chars().take(150).collect();
             for line in preview.lines().take(8) {
                 content.push_str(&format!("    {}\n", line));
             }
-            if insight.code_dossier.source_summary.len() > 150 {
+            if fi.source_summary.len() > 150 {
                 content.push_str("    ...\n");
             }
             content.push_str("    ```\n");

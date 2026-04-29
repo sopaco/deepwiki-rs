@@ -75,6 +75,10 @@ pub struct Args {
     #[arg(long)]
     pub max_parallels: Option<usize>,
 
+    /// Tool concurrency parameter
+    #[arg(long)]
+    pub tool_concurrency: Option<usize>,
+
     /// LLM Provider (openai, mistral, openrouter, anthropic, deepseek)
     #[arg(long)]
     pub llm_provider: Option<String>,
@@ -94,10 +98,6 @@ pub struct Args {
     /// Force regeneration (clear cache)
     #[arg(long)]
     pub force_regenerate: bool,
-
-    /// Maximum boundary insights to analyze (reduces timeout risk)
-    #[arg(long)]
-    pub boundary_max_insights: Option<usize>,
 
     /// Code insights limit for boundary analysis
     #[arg(long)]
@@ -202,6 +202,9 @@ impl Args {
         if let Some(max_parallels) = self.max_parallels {
             config.llm.max_parallels = max_parallels;
         }
+        if let Some(tool_concurrency) = self.tool_concurrency {
+            config.llm.tool_concurrency = tool_concurrency;
+        }
         config.llm.disable_preset_tools = self.disable_preset_tools;
 
         // Target language configuration
@@ -220,9 +223,6 @@ impl Args {
         }
 
         // Boundary analysis configuration overrides
-        if let Some(max_insights) = self.boundary_max_insights {
-            config.boundary_analysis.max_boundary_insights = max_insights;
-        }
         if let Some(code_limit) = self.boundary_code_limit {
             config.boundary_analysis.code_insights_limit = code_limit;
         }

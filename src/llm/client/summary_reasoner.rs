@@ -26,7 +26,7 @@ impl SummaryReasoner {
         );
 
         // Use agent without tools for single-turn reasoning
-        let result = agent_without_tools.prompt(&summary_prompt).await?;
+        let result = agent_without_tools.prompt(&summary_prompt, 1).await?;
         
         Ok(result)
     }

@@ -8,15 +8,12 @@ use crate::types::original_document::OriginalDocument;
 use crate::{
     generator::{
         context::GeneratorContext,
-        preprocess::{
-            agents::{code_analyze::CodeAnalyze, relationships_analyze::RelationshipsAnalyze},
-            extractors::structure_extractor::StructureExtractor,
-        },
+        preprocess::extractors::structure_extractor::StructureExtractor,
         types::Generator,
     },
     types::{
-        code::CodeInsight, code_releationship::RelationshipAnalysis,
-        project_structure::ProjectStructure,
+        project_structure::ProjectStructure, CodeAndDirectoryInsights, DirectoryDossier,
+        DirectoryPurpose,
     },
 };
 
@@ -24,17 +21,15 @@ pub mod agents;
 pub mod extractors;
 pub mod memory;
 
-/// Preprocessing result
+use crate::generator::preprocess::agents::directory_summary::FileContent;
+use crate::generator::preprocess::agents::relationships_analyze::RelationshipsAnalyze;
+
+/// Preprocessing result — simplified to directory-only insights
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct PreprocessingResult {
-    // Original document materials extracted from the project, may not be accurate and is for reference only
     pub original_document: OriginalDocument,
-    // Project structure information
     pub project_structure: ProjectStructure,
-    // Intelligent insights of core code
-    pub core_code_insights: Vec<CodeInsight>,
-    // Dependencies between code
-    pub relationships: RelationshipAnalysis,
+    pub directory_dossiers: Vec<DirectoryDossier>,
     pub processing_time: f64,
 }
 
@@ -59,7 +54,7 @@ impl Generator<PreprocessingResult> for PreProcessAgent {
         println!("📁 Extracting project original document materials...");
         let original_document = original_document_extractor::extract(&context).await?;
 
-        // 2. Extract project structure
+        // 2. Extract project structure (includes all files and directories)
         println!("📁 Extracting project structure...");
         let project_structure = structure_extractor
             .extract_structure(&config.project_path)
@@ -70,33 +65,27 @@ impl Generator<PreprocessingResult> for PreProcessAgent {
             project_structure.total_files, project_structure.total_directories
         );
 
-        // 3. Identify core components
-        println!("🎯 Identifying main source code files...");
-        let important_codes = structure_extractor
-            .identify_core_codes(&project_structure)
-            .await?;
+        // 3. Generate directory dossiers with LLM (reads files directly, no top-N filtering)
+        println!("📂 Generating directory dossiers with LLM...");
+        let directory_dossiers =
+            generate_directory_dossiers(&context, &project_structure).await?;
 
-        println!("   Identified {} main source code files", important_codes.len());
-
-        // 4. Analyze core components using AI
-        println!("🤖 Analyzing core files using AI...");
-        let code_analyze = CodeAnalyze::new();
-        let core_code_insights = code_analyze
-            .execute(&context, &important_codes, &project_structure)
-            .await?;
-
-        // 5. Analyze component relationships
-        println!("🔗 Analyzing component relationships...");
-        let relationships_analyze = RelationshipsAnalyze::new();
-        let relationships = relationships_analyze
-            .execute(&context, &core_code_insights, &project_structure)
+        // 4. Generate relationship analysis based on directory dossiers
+        println!("🔗 Generating relationship analysis...");
+        let relationships_analyzer = RelationshipsAnalyze::new();
+        let relationships = relationships_analyzer
+            .execute(&context, &directory_dossiers)
             .await?;
 
         let processing_time = start_time.elapsed().as_secs_f64();
 
-        println!("✅ Project preprocessing completed, took {:.2} seconds", processing_time);
+        println!(
+            "✅ Project preprocessing completed, {} directories analyzed, took {:.2}s",
+            directory_dossiers.len(),
+            processing_time
+        );
 
-        // 6. Store preprocessing results to Memory
+        // 4. Store results to Memory
         context
             .store_to_memory(
                 MemoryScope::PREPROCESS,
@@ -108,14 +97,10 @@ impl Generator<PreprocessingResult> for PreProcessAgent {
             .store_to_memory(
                 MemoryScope::PREPROCESS,
                 ScopedKeys::CODE_INSIGHTS,
-                &core_code_insights,
-            )
-            .await?;
-        context
-            .store_to_memory(
-                MemoryScope::PREPROCESS,
-                ScopedKeys::RELATIONSHIPS,
-                &relationships,
+                &CodeAndDirectoryInsights {
+                    file_insights: Vec::new(),
+                    directory_insights: directory_dossiers.clone(),
+                },
             )
             .await?;
         context
@@ -125,13 +110,237 @@ impl Generator<PreprocessingResult> for PreProcessAgent {
                 &original_document,
             )
             .await?;
+        context
+            .store_to_memory(
+                MemoryScope::PREPROCESS,
+                ScopedKeys::RELATIONSHIPS,
+                &relationships,
+            )
+            .await?;
 
         Ok(PreprocessingResult {
             original_document,
             project_structure,
-            core_code_insights,
-            relationships,
+            directory_dossiers,
             processing_time,
         })
+    }
+}
+
+/// Generate directory dossiers by reading files directly from disk.
+/// Each directory's files are batched: if total content exceeds 256KB, split into
+/// batches (sorted lexicographically for cache-friendly ordering) and merge results.
+const MAX_BATCH_SIZE: usize = 256 * 1024;
+
+async fn generate_directory_dossiers(
+    context: &GeneratorContext,
+    project_structure: &ProjectStructure,
+) -> Result<Vec<DirectoryDossier>> {
+    use crate::generator::preprocess::agents::directory_summary::DirectorySummarizer;
+
+    let summarizer = DirectorySummarizer::new();
+    let config = &context.config;
+    let mut dossiers = Vec::new();
+    let total_dirs = project_structure.directories.len();
+
+    for (idx, dir) in project_structure.directories.iter().enumerate() {
+        // Read all files in this directory from disk
+        let mut files = read_directory_files(&dir.path, config)?;
+
+        if files.is_empty() {
+            continue;
+        }
+
+        // Sort lexicographically for cache-friendly batching
+        files.sort_by(|a, b| a.name.cmp(&b.name));
+
+        // Calculate total size
+        let total_size: usize = files.iter().map(|f| f.content.len()).sum();
+
+        if total_size <= MAX_BATCH_SIZE {
+            // Single batch
+            match summarizer
+                .summarize_directory(context, dir, &files, Some((idx + 1, total_dirs)))
+                .await
+            {
+                Ok(dossier) => dossiers.push(dossier),
+                Err(e) => {
+                    eprintln!(
+                        "⚠️  Failed to summarize directory {}: {}, using fallback",
+                        dir.name, e
+                    );
+                    dossiers.push(fallback_dossier(dir));
+                }
+            }
+        } else {
+            // Multiple batches: split by file boundaries, keep lexicographic order within each batch
+            let batches = split_into_batches(&files, MAX_BATCH_SIZE);
+            if batches.len() == 1 {
+                // Edge case: single file exceeds 256KB
+                match summarizer
+                    .summarize_directory(context, dir, &files, Some((idx + 1, total_dirs)))
+                    .await
+                {
+                    Ok(dossier) => dossiers.push(dossier),
+                    Err(e) => {
+                        eprintln!(
+                            "⚠️  Failed to summarize directory {}: {}, using fallback",
+                            dir.name, e
+                        );
+                        dossiers.push(fallback_dossier(dir));
+                    }
+                }
+            } else {
+                match summarizer
+                    .summarize_batch(context, dir, &batches, Some((idx + 1, total_dirs)))
+                    .await
+                {
+                    Ok(dossier) => dossiers.push(dossier),
+                    Err(e) => {
+                        eprintln!(
+                            "⚠️  Failed to summarize directory {} (batch mode): {}, using fallback",
+                            dir.name, e
+                        );
+                        dossiers.push(fallback_dossier(dir));
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(dossiers)
+}
+
+/// Read all files in a directory, respecting config exclusions and max_file_size.
+fn read_directory_files(
+    dir_path: &std::path::PathBuf,
+    config: &crate::config::Config,
+) -> Result<Vec<FileContent>> {
+    use crate::utils::file_utils::{is_binary_file_path, is_test_file};
+
+    let mut files = Vec::new();
+
+    if let Ok(entries) = std::fs::read_dir(dir_path) {
+        for entry in entries.filter_map(|e| e.ok()) {
+            let path = entry.path();
+            if !path.is_file() {
+                continue;
+            }
+
+            // Skip binary files
+            if is_binary_file_path(&path) {
+                continue;
+            }
+
+            // Get file name for exclusion checks
+            let file_name = path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("")
+                .to_lowercase();
+
+            // Skip excluded files (wildcard and exact match)
+            let should_skip_file = config.excluded_files.iter().any(|excluded| {
+                if excluded.contains('*') {
+                    let pattern = excluded.replace('*', "").to_lowercase();
+                    file_name.contains(&pattern)
+                } else {
+                    file_name == excluded.to_lowercase()
+                }
+            });
+            if should_skip_file {
+                continue;
+            }
+
+            // Skip excluded extensions
+            if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
+                if config.excluded_extensions.contains(&ext.to_lowercase()) {
+                    continue;
+                }
+            }
+
+            // Skip hidden files (unless include_hidden is set)
+            if !config.include_hidden && file_name.starts_with('.') {
+                continue;
+            }
+
+            // Skip test files (unless include_tests is set)
+            if !config.include_tests && is_test_file(&path) {
+                continue;
+            }
+
+            if let Ok(metadata) = std::fs::metadata(&path) {
+                let file_size = metadata.len() as usize;
+                let name = path
+                    .file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .to_string();
+
+                // Read up to max_file_size bytes (not the full file for oversized files)
+                let max_read_size = config.max_file_size as usize;
+                let read_size = file_size.min(max_read_size);
+
+                if let Ok(mut file) = std::fs::File::open(&path) {
+                    use std::io::Read;
+                    let mut buffer = vec![0u8; read_size];
+                    if let Ok(bytes_read) = file.read(&mut buffer) {
+                        buffer.truncate(bytes_read);
+                        // Decode to string, handling potential UTF-8 issues
+                        let content = String::from_utf8_lossy(&buffer).into_owned();
+                        // Truncate per-file at 256KB for prompt (but only if under max_file_size, otherwise we already truncated at max_file_size)
+                        let truncated = if content.chars().count() > 256 * 1024 {
+                            content.chars().take(256 * 1024).collect()
+                        } else {
+                            content
+                        };
+                        files.push(FileContent {
+                            name,
+                            path,
+                            content: truncated,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(files)
+}
+
+/// Split files into batches, each batch's total content <= max_size.
+/// Files are kept in lexicographic order within each batch.
+fn split_into_batches(files: &[FileContent], max_size: usize) -> Vec<Vec<FileContent>> {
+    let mut batches = Vec::new();
+    let mut current_batch = Vec::new();
+    let mut current_size = 0usize;
+
+    for file in files {
+        if current_size + file.content.len() > max_size && !current_batch.is_empty() {
+            batches.push(std::mem::take(&mut current_batch));
+            current_size = 0;
+        }
+        current_size += file.content.len();
+        current_batch.push(file.clone());
+    }
+
+    if !current_batch.is_empty() {
+        batches.push(current_batch);
+    }
+
+    batches
+}
+
+fn fallback_dossier(dir: &crate::types::DirectoryInfo) -> DirectoryDossier {
+    DirectoryDossier {
+        path: dir.path.clone(),
+        name: dir.name.clone(),
+        purpose: DirectoryPurpose::Other,
+        file_count: dir.file_count,
+        subdirectory_count: dir.subdirectory_count,
+        importance_score: 0.0,
+        summary: String::new(),
+        key_files: Vec::new(),
+        file_insights: Vec::new(),
     }
 }

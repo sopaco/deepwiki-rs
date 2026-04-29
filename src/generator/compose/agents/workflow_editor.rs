@@ -84,7 +84,9 @@ You need to generate complete workflow documentation that meets both business an
 3. **Professionalism**: Use standard process analysis terminology and expressions
 4. **Readability**: Clear structure, rich narrative language, easy to understand and execute
 5. **Practicality**: Provide valuable process guidance and operational details
-6. **Alignment**: Maintain consistency with external business process documentation when available"#.to_string(),
+6. **Alignment**: Maintain consistency with external business process documentation when available
+
+IMPORTANT: Do not use transition phrases like "Now I have gathered comprehensive information" or "I have collected enough details" - start writing the documentation directly."#.to_string(),
 
             opening_instruction: r#"Based on the following comprehensive research materials, write a complete, in-depth, and detailed system core workflow document. Please carefully analyze all provided research reports and extract key workflow information:
 

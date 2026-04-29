@@ -112,11 +112,7 @@ impl Outlet for DiskOutlet {
         println!("💾 Document save completed, output directory: {}", output_dir.display());
 
         // Automatically fix mermaid charts after document save
-        if let Err(e) = MermaidFixer::auto_fix_after_output(context).await {
-            let msg = context.config.target_language.msg_mermaid_error();
-            eprintln!("{}", msg.replace("{}", &e.to_string()));
-            eprintln!("💡 This will not affect the main documentation generation process");
-        }
+        MermaidFixer::auto_fix_after_output(context).await?;
 
         Ok(())
     }
