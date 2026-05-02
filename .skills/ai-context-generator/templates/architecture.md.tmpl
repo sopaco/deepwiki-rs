@@ -1,0 +1,110 @@
+# Architecture — {{PROJECT_NAME}}
+
+> How components fit together. Last updated: {{DATE}}.
+>
+> **Update this when:** New component added, responsibilities shift, data flow changes.
+
+---
+
+## System Overview
+
+```
+[INSERT ASCII DIAGRAM OR MERMAID DIAGRAM HERE]
+
+Example format:
+┌─────────────────────────────────────────────────────────────────┐
+│                     [Main System/Platform]                       │
+│                                                                   │
+│  ┌───────────────────┐     ┌────────────────────────┐           │
+│  │   [Component A]   │     │    [Component B]       │           │
+│  │                   │     │                        │           │
+│  │ • [responsibility]│     │ • [responsibility]     │           │
+│  └────────┬──────────┘     └───────────┬────────────┘           │
+│           │                            │                         │
+│           └────────────┬───────────────┘                         │
+│                        ▼                                         │
+│           ┌────────────────────────┐                            │
+│           │  [Backend Service]      │ ← Port XXXX               │
+│           └────────────┬───────────┘                            │
+│                        │                                         │
+│           ┌────────────┼────────────┐                           │
+│           ▼            ▼            ▼                           │
+│    ┌───────────┐ ┌────────────┐ ┌─────────────┐                │
+│    │ [Store A] │ │ [Store B]  │ │ [External]  │                │
+│    └───────────┘ └────────────┘ └─────────────┘                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Component Responsibilities
+
+### [Component A]
+- **Entry:** `path/to/entry.ts`
+- **Purpose:** [What this component does]
+- **Key behaviors:**
+  - [Behavior 1]
+  - [Behavior 2]
+
+### [Component B]
+- **Entry:** `path/to/entry.ts`
+- **Purpose:** [What this component does]
+- **Key behaviors:**
+  - [Behavior 1]
+  - [Behavior 2]
+
+<!-- Add more components as needed -->
+
+---
+
+## Data Flow
+
+### [Flow Name 1] (e.g., Write Path)
+```
+[Trigger]
+    → [Step 1]
+    → [Step 2]
+    → [Result]
+```
+
+### [Flow Name 2] (e.g., Read Path)
+```
+[Trigger]
+    → [Step 1]
+    → [Step 2]
+    → [Result]
+```
+
+---
+
+## Key Design Patterns
+
+### 1. [Pattern Name]
+- **Where:** [Which components use this]
+- **Why:** [Rationale]
+- **How it works:** [Brief explanation]
+
+---
+
+## Dependencies
+
+| Package | Purpose | Version Constraint |
+|---------|---------|-------------------|
+| [Package 1] | [Purpose] | [Version] |
+| [Package 2] | [Purpose] | [Version] |
+
+---
+
+## Configuration Layers
+
+```
+[Config Source A] (highest priority)
+    ↓
+[Config Source B]
+    ↓
+[Default values] (lowest priority)
+```
+
+---
+
+*This file describes component relationships. For detailed implementation, explore the source code or use `grep`.*

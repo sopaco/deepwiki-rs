@@ -1,0 +1,785 @@
+#!/usr/bin/env bun
+/**
+ * AI Context Generator
+ *
+ * Generates .ai-context knowledge base structure for coding agents.
+ * Run with: bun run generate.ts [project-path]
+ */
+
+import * as fs from 'fs'
+import * as path from 'path'
+
+// =============================================================================
+// Types & Interfaces
+// =============================================================================
+
+interface ProjectInfo {
+  name: string
+  description: string
+  problem: string
+  solution: string
+  targetUsers: Array<{ user: string; useCase: string }>
+  components: Array<{ name: string; purpose: string; entry?: string }>
+  decisions: Array<{ title: string; context: string; decision: string; rationale: string }>
+  issues: Array<{ title: string; status: 'active' | 'known'; impact: string; workaround: string }>
+  constraints: string[]
+}
+
+interface TemplateData {
+  PROJECT_NAME: string
+  DATE: string
+  [key: string]: string | string[] | object[]
+}
+
+// =============================================================================
+// Template Engine
+// =============================================================================
+
+function renderTemplate(template: string, data: TemplateData): string {
+  let result = template
+
+  // Replace simple {{KEY}} placeholders
+  for (const [key, value] of Object.entries(data)) {
+    if (typeof value === 'string') {
+      result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value)
+    }
+  }
+
+  return result
+}
+
+// =============================================================================
+// File Templates
+// =============================================================================
+
+const SKILL_TEMPLATE = `---
+name: ai-context
+description: |
+  Project knowledge base for coding agents. Activate when: (1) starting a new session in this project, (2) encountering unfamiliar code patterns or architecture decisions, (3) user asks about project design or rationale, (4) before making significant structural changes. Contains tiered knowledge from stable design principles to dynamic issues.
+---
+
+# AI Context — {{PROJECT_NAME}}
+
+> This skill provides pre-generated project knowledge to help you understand the project faster and work more effectively.
+
+---
+
+## 🎯 When to Activate This Skill
+
+**Activate immediately when:**
+- Starting a new coding session in this project
+- You need to understand "why something is designed this way"
+- User asks about project architecture, design decisions, or constraints
+
+**Refer to specific sections when:**
+- Encountering unexpected behavior or errors → \`DYNAMICS.md\`
+- Planning structural changes → \`references/DECISIONS.md\`
+- Need high-level overview → \`references/PROJECT-ESSENCE.md\`
+- Need component relationships → \`references/ARCHITECTURE.md\`
+
+**Do NOT activate when:**
+- Simple code edits with clear context
+- User requests are purely mechanical (rename, format, etc.)
+- You already have sufficient context from recent conversation
+
+---
+
+## 📁 Knowledge Tiers
+
+| Tier | File | Stability | Update Frequency |
+|------|------|-----------|------------------|
+| **Tier 0** | \`PROJECT-ESSENCE.md\` | High | Quarterly / Major version |
+| **Tier 1** | \`ARCHITECTURE.md\` | Medium | Monthly / Sprint |
+| **Tier 2** | \`DECISIONS.md\` | Low | Per decision change |
+| **Tier 3** | \`DYNAMICS.md\` | Dynamic | As needed |
+
+### Reading Order (Recommended)
+
+\`\`\`
+1. PROJECT-ESSENCE.md  ← Start here (1-2 min read)
+2. ARCHITECTURE.md     ← If working across components
+3. DECISIONS.md        ← If changing established patterns
+4. DYNAMICS.md         ← If something feels wrong
+\`\`\`
+
+---
+
+## 🔧 How to Use This Knowledge
+
+### 1. Session Start Protocol
+\`\`\`
+□ Read PROJECT-ESSENCE.md (always)
+□ Scan DYNAMICS.md for active issues
+□ Read ARCHITECTURE.md if working across subprojects
+□ Proceed with dynamic code exploration
+\`\`\`
+
+### 2. Dynamic Code Exploration
+- Use \`grep\` and \`find_path\` to locate actual implementations
+- Verify knowledge against current code state
+- Update knowledge if you find drift
+
+### 3. Decision Validation
+Before changing established patterns:
+\`\`\`
+□ Check DECISIONS.md for existing decisions
+□ If decision exists: follow it or explicitly propose change
+□ If new decision needed: document after implementation
+\`\`\`
+
+---
+
+## 🔄 When to Update
+
+### Update PROJECT-ESSENCE.md when:
+- Project purpose or scope fundamentally changes
+- New major capability is added
+
+### Update ARCHITECTURE.md when:
+- New component/subproject added
+- Component responsibilities shift
+- Data flow changes significantly
+
+### Update DECISIONS.md when:
+- A new design decision is made
+- An existing decision is revisited/changed
+
+### Update DYNAMICS.md when:
+- New issue discovered
+- Issue resolved
+- Workaround found
+
+---
+
+## 📚 File Reference
+
+- [Project Essence](references/PROJECT-ESSENCE.md)
+- [Architecture](references/ARCHITECTURE.md)
+- [Decisions](references/DECISIONS.md)
+- [Dynamics](DYNAMICS.md)
+- [Maintenance Guide](meta/MAINTENANCE.md)
+
+---
+
+*Generated by ai-context-generator on {{DATE}}*
+`
+
+const ESSENCE_TEMPLATE = `# Project Essence — {{PROJECT_NAME}}
+
+> **Stability: HIGH** | Update: Quarterly or major version changes
+>
+> Last reviewed: {{DATE}}
+
+---
+
+## What Is This Project?
+
+{{PROJECT_DESCRIPTION}}
+
+---
+
+## Why Does It Exist?
+
+**Problem:** {{PROJECT_PROBLEM}}
+
+**Solution:**
+{{PROJECT_SOLUTION}}
+
+---
+
+## Who Is This For?
+
+| User | Use Case |
+|------|----------|
+{{#TARGET_USERS}}
+| {{user}} | {{useCase}} |
+{{/TARGET_USERS}}
+
+---
+
+## Key Constraints
+
+{{PROJECT_CONSTRAINTS}}
+
+---
+
+*This file captures the stable essence of the project. For architecture details, see [ARCHITECTURE.md](ARCHITECTURE.md).*
+`
+
+const ARCHITECTURE_TEMPLATE = `# Architecture — {{PROJECT_NAME}}
+
+> How components fit together. Last updated: {{DATE}}.
+>
+> **Update this when:** New component added, responsibilities shift, data flow changes.
+
+---
+
+## System Overview
+
+\`\`\`
+[DIAGRAM_PLACEHOLDER - Replace with your system diagram]
+
+Example:
+┌─────────────────────────────────────────────────────────────────┐
+│                     [Main System/Platform]                       │
+│                                                                   │
+│  ┌───────────────────┐     ┌────────────────────────┐           │
+│  │   [Component A]   │     │    [Component B]       │           │
+│  │                   │     │                        │           │
+│  │ • [responsibility]│     │ • [responsibility]     │           │
+│  └────────┬──────────┘     └───────────┬────────────┘           │
+│           │                            │                         │
+│           └────────────┬───────────────┘                         │
+│                        ▼                                         │
+│           ┌────────────────────────┐                            │
+│           │  [Backend Service]      │ ← Port XXXX               │
+│           └────────────────────────┘                            │
+└─────────────────────────────────────────────────────────────────┘
+\`\`\`
+
+---
+
+## Component Responsibilities
+
+{{#COMPONENTS}}
+### {{name}}
+- **Purpose:** {{purpose}}
+{{#entry}}
+- **Entry:** \`{{entry}}\`
+{{/entry}}
+
+{{/COMPONENTS}}
+
+---
+
+## Data Flow
+
+[TBD: Describe key data flows]
+
+---
+
+## Dependencies
+
+| Package | Purpose | Version |
+|---------|---------|---------|
+| [package] | [purpose] | [version] |
+
+---
+
+*This file describes component relationships. For implementation details, explore the source code.*
+`
+
+const DECISIONS_TEMPLATE = `# Design Decisions — {{PROJECT_NAME}}
+
+> Key architectural and design decisions. Update when decisions are made or revisited.
+>
+> Last reviewed: {{DATE}}
+
+---
+
+## Decision Index
+
+| ID | Decision | Status | Date |
+|----|----------|--------|------|
+{{#DECISIONS}}
+| ADR-XXX | {{title}} | Active | {{DATE}} |
+{{/DECISIONS}}
+
+---
+
+{{#DECISIONS}}
+## ADR-XXX: {{title}}
+
+**Context**: {{context}}
+
+**Decision**: {{decision}}
+
+**Rationale**: {{rationale}}
+
+**Trade-offs**:
+- (+) [Benefit]
+- (-) [Cost]
+
+---
+
+{{/DECISIONS}}
+
+## Template for New Decisions
+
+\`\`\`markdown
+## ADR-XXX: [Short Title]
+
+**Context**: [What is the issue?]
+
+**Decision**: [What did we decide?]
+
+**Rationale**: [Why this choice?]
+
+**Trade-offs**:
+- (+) [Benefit]
+- (-) [Cost]
+\`\`\`
+
+---
+
+*This file captures decisions that aren't obvious from code.*
+`
+
+const DYNAMICS_TEMPLATE = `# Dynamics — Active Issues & Constraints
+
+> **Last updated:** {{DATE}}
+> **Stability:** Dynamic — Update as issues arise/resolve
+
+---
+
+## ⚡ Quick Scan
+
+| Status | Issue | Impact | Workaround |
+|--------|-------|--------|------------|
+{{#ISSUES}}
+| {{statusIcon}} | {{title}} | {{impact}} | {{workaround}} |
+{{/ISSUES}}
+
+---
+
+## 🔴 Active Issues
+
+{{#ISSUES}}
+{{#isActive}}
+### {{title}}
+
+**What:** [Description]
+
+**Impact:** {{impact}}
+
+**Workaround:** {{workaround}}
+
+---
+
+{{/isActive}}
+{{/ISSUES}}
+
+## 🟡 Known Constraints
+
+[TBD: Add known constraints that affect development]
+
+---
+
+## 🟢 Recently Resolved
+
+| Issue | Resolution | Date |
+|-------|------------|------|
+| [issue] | [resolution] | [date] |
+
+---
+
+## 📋 Under Consideration
+
+[TBD: Items being evaluated]
+
+---
+
+*Remember: This file changes frequently. Verify against current code state.*
+`
+
+const MAINTENANCE_TEMPLATE = `# AI Context Maintenance Guide
+
+> How to keep this knowledge base accurate. Last updated: {{DATE}}.
+
+---
+
+## 🎯 Purpose
+
+This guide tells you (the coding agent) how to maintain \`.ai-context\`.
+
+---
+
+## 📋 Maintenance Triggers
+
+| Observation | Action | File |
+|-------------|--------|------|
+| Code contradicts docs | Fix docs | Relevant file |
+| New component | Add entry | ARCHITECTURE.md |
+| Major decision | Document | DECISIONS.md |
+| Blocking issue | Add entry | DYNAMICS.md |
+| Issue resolved | Remove | DYNAMICS.md |
+
+---
+
+## ✍️ Writing Guidelines
+
+### PROJECT-ESSENCE.md
+- Under 100 lines
+- "What" and "why", not "how"
+- No code snippets
+- Update: Quarterly
+
+### ARCHITECTURE.md
+- Diagrams over paragraphs
+- Component-level, not file-level
+- Show data flow
+- Update: Monthly
+
+### DECISIONS.md
+- Non-obvious choices only
+- Include rationale
+- Update: As decisions made
+
+### DYNAMICS.md
+- Current issues only
+- Remove when resolved
+- Update: As needed
+
+---
+
+## 🔄 Update Workflow
+
+1. Identify file needing update
+2. Read current content
+3. Make minimal changes
+4. Update "Last updated" date
+5. Continue your task
+
+---
+
+## ❌ Anti-Patterns
+
+- Don't copy code snippets
+- Don't document every file
+- Don't keep resolved issues
+- Don't duplicate across files
+
+---
+
+## ✅ Quality Checklist
+
+- [ ] PROJECT-ESSENCE.md readable in 2 min
+- [ ] ARCHITECTURE.md shows big picture
+- [ ] DECISIONS.md has rationale
+- [ ] DYNAMICS.md only current issues
+- [ ] All files dated
+
+---
+
+*Update this guide when you discover better maintenance patterns.*
+`
+
+// =============================================================================
+// Project Analysis
+// =============================================================================
+
+async function analyzeProject(projectPath: string): Promise<ProjectInfo> {
+  const packageJsonPath = path.join(projectPath, 'package.json')
+  const readmePath = path.join(projectPath, 'README.md')
+  const agentsPath = path.join(projectPath, 'AGENTS.md')
+
+  let projectName = path.basename(projectPath)
+  let description = ''
+
+  // Read package.json if exists
+  if (fs.existsSync(packageJsonPath)) {
+    const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'))
+    projectName = pkg.name || projectName
+    description = pkg.description || ''
+  }
+
+  // Read README if exists
+  let readme = ''
+  if (fs.existsSync(readmePath)) {
+    readme = fs.readFileSync(readmePath, 'utf-8')
+    if (!description) {
+      // Extract first paragraph as description
+      const match = readme.match(/^#\s.*\n+([^#\n].*?)(?:\n\n|$)/m)
+      if (match) {
+        description = match[1].trim()
+      }
+    }
+  }
+
+  // Read AGENTS.md if exists
+  let agents = ''
+  if (fs.existsSync(agentsPath)) {
+    agents = fs.readFileSync(agentsPath, 'utf-8')
+  }
+
+  // Scan directory structure
+  const components = scanComponents(projectPath)
+
+  return {
+    name: projectName,
+    description: description || 'A software project',
+    problem: '[TBD: What problem does this project solve?]',
+    solution: '[TBD: How does this project solve it?]',
+    targetUsers: [{ user: 'Developer', useCase: 'Building software' }],
+    components,
+    decisions: [],
+    issues: [],
+    constraints: []
+  }
+}
+
+function scanComponents(projectPath: string): ProjectInfo['components'] {
+  const components: ProjectInfo['components'] = []
+
+  const entries = fs.readdirSync(projectPath, { withFileTypes: true })
+
+  for (const entry of entries) {
+    if (entry.isDirectory() && !entry.name.startsWith('.') && !entry.name.startsWith('node_modules')) {
+      const subPath = path.join(projectPath, entry.name)
+
+      // Check if it's a subproject (has package.json)
+      const subPackageJson = path.join(subPath, 'package.json')
+      if (fs.existsSync(subPackageJson)) {
+        const pkg = JSON.parse(fs.readFileSync(subPackageJson, 'utf-8'))
+        components.push({
+          name: entry.name,
+          purpose: pkg.description || 'Subproject',
+          entry: path.join(entry.name, 'index.ts')
+        })
+      } else {
+        // Regular directory - check for src
+        const srcPath = path.join(subPath, 'src')
+        if (fs.existsSync(srcPath)) {
+          components.push({
+            name: entry.name,
+            purpose: `${entry.name} module`
+          })
+        }
+      }
+    }
+  }
+
+  return components
+}
+
+// =============================================================================
+// Generator Functions
+// =============================================================================
+
+function generateSkillMd(info: ProjectInfo): string {
+  const date = new Date().toISOString().split('T')[0]
+  return renderTemplate(SKILL_TEMPLATE, {
+    PROJECT_NAME: info.name,
+    DATE: date
+  })
+}
+
+function generateProjectEssence(info: ProjectInfo): string {
+  const date = new Date().toISOString().split('T')[0]
+
+  let targetUsersStr = ''
+  for (const tu of info.targetUsers) {
+    targetUsersStr += `| ${tu.user} | ${tu.useCase} |\n`
+  }
+
+  let constraintsStr = ''
+  for (let i = 0; i < info.constraints.length; i++) {
+    constraintsStr += `${i + 1}. **${info.constraints[i]}**\n`
+  }
+  if (!constraintsStr) {
+    constraintsStr = '1. **[TBD: Add key constraints]**\n'
+  }
+
+  let template = ESSENCE_TEMPLATE
+  template = template.replace('{{PROJECT_NAME}}', info.name)
+  template = template.replace('{{DATE}}', date)
+  template = template.replace('{{PROJECT_DESCRIPTION}}', info.description)
+  template = template.replace('{{PROJECT_PROBLEM}}', info.problem)
+  template = template.replace('{{PROJECT_SOLUTION}}', info.solution)
+  template = template.replace('{{#TARGET_USERS}}\n| {{user}} | {{useCase}} |\n{{/TARGET_USERS}}', targetUsersStr)
+  template = template.replace('{{PROJECT_CONSTRAINTS}}', constraintsStr)
+
+  return template
+}
+
+function generateArchitecture(info: ProjectInfo): string {
+  const date = new Date().toISOString().split('T')[0]
+
+  let componentsStr = ''
+  for (const comp of info.components) {
+    componentsStr += `### ${comp.name}\n`
+    componentsStr += `- **Purpose:** ${comp.purpose}\n`
+    if (comp.entry) {
+      componentsStr += `- **Entry:** \`${comp.entry}\`\n`
+    }
+    componentsStr += '\n'
+  }
+
+  let template = ARCHITECTURE_TEMPLATE
+  template = template.replace('{{PROJECT_NAME}}', info.name)
+  template = template.replace('{{DATE}}', date)
+
+  // Handle component block
+  const compBlockMatch = template.match(/{{#COMPONENTS}}[\s\S]*?{{\/COMPONENTS}}/)
+  if (compBlockMatch) {
+    template = template.replace(compBlockMatch[0], componentsStr)
+  }
+
+  return template
+}
+
+function generateDecisions(info: ProjectInfo): string {
+  const date = new Date().toISOString().split('T')[0]
+
+  let decisionsStr = ''
+  let decisionBlocks = ''
+
+  for (const dec of info.decisions) {
+    decisionsStr += `| ADR-XXX | ${dec.title} | Active | ${date} |\n`
+    decisionBlocks += `## ADR-XXX: ${dec.title}\n\n`
+    decisionBlocks += `**Context**: ${dec.context}\n\n`
+    decisionBlocks += `**Decision**: ${dec.decision}\n\n`
+    decisionBlocks += `**Rationale**: ${dec.rationale}\n\n`
+    decisionBlocks += '**Trade-offs**:\n- (+) [Benefit]\n- (-) [Cost]\n\n---\n\n'
+  }
+
+  if (!decisionsStr) {
+    decisionsStr = '| ADR-001 | [First decision title] | Active | YYYY-MM |\n'
+    decisionBlocks = `## ADR-001: [Decision Title]
+
+**Context**: [What is the issue?]
+
+**Decision**: [What did we decide?]
+
+**Rationale**: [Why this choice?]
+
+**Trade-offs**:
+- (+) [Benefit]
+- (-) [Cost]
+
+---
+
+`
+  }
+
+  let template = DECISIONS_TEMPLATE
+  template = template.replace('{{PROJECT_NAME}}', info.name)
+  template = template.replace('{{DATE}}', date)
+
+  // Handle index block
+  const indexBlockMatch = template.match(/{{#DECISIONS}}[\s\S]*?{{\/DECISIONS}}/)
+  if (indexBlockMatch) {
+    // For index, just use the title
+    template = template.replace(indexBlockMatch[0], decisionsStr)
+  }
+
+  // Handle decision blocks - need to re-match after first replacement
+  const blockMatch = template.match(/{{#DECISIONS}}[\s\S]*?{{\/DECISIONS}}/)
+  if (blockMatch) {
+    template = template.replace(blockMatch[0], decisionBlocks)
+  }
+
+  return template
+}
+
+function generateDynamics(info: ProjectInfo): string {
+  const date = new Date().toISOString().split('T')[0]
+
+  let issuesStr = ''
+  let activeStr = ''
+
+  for (const issue of info.issues) {
+    const icon = issue.status === 'active' ? '🔴' : '🟡'
+    issuesStr += `| ${icon} | ${issue.title} | ${issue.impact} | ${issue.workaround} |\n`
+
+    if (issue.status === 'active') {
+      activeStr += `### ${issue.title}\n\n`
+      activeStr += `**What:** [Description]\n\n`
+      activeStr += `**Impact:** ${issue.impact}\n\n`
+      activeStr += `**Workaround:** ${issue.workaround}\n\n---\n\n`
+    }
+  }
+
+  if (!issuesStr) {
+    issuesStr = '| 🔴 | [No active issues documented] | — | — |\n'
+  }
+
+  let template = DYNAMICS_TEMPLATE
+  template = template.replace('{{DATE}}', date)
+
+  // Handle quick scan block
+  const scanBlockMatch = template.match(/{{#ISSUES}}[\s\S]*?{{\/ISSUES}}/)
+  if (scanBlockMatch) {
+    template = template.replace(scanBlockMatch[0], issuesStr)
+  }
+
+  return template
+}
+
+function generateMaintenance(info: ProjectInfo): string {
+  const date = new Date().toISOString().split('T')[0]
+  return renderTemplate(MAINTENANCE_TEMPLATE, {
+    DATE: date
+  })
+}
+
+// =============================================================================
+// Main Generator
+// =============================================================================
+
+async function generate(projectPath: string): Promise<void> {
+  console.log(`\n🚀 Generating .ai-context for: ${projectPath}\n`)
+
+  // Analyze project
+  console.log('📊 Analyzing project...')
+  const info = await analyzeProject(projectPath)
+  console.log(`   Found: ${info.name}`)
+  console.log(`   Components: ${info.components.length}`)
+
+  // Create directory structure
+  const aiContextPath = path.join(projectPath, '.ai-context')
+  const referencesPath = path.join(aiContextPath, 'references')
+  const metaPath = path.join(aiContextPath, 'meta')
+
+  console.log('\n📁 Creating directory structure...')
+  fs.mkdirSync(aiContextPath, { recursive: true })
+  fs.mkdirSync(referencesPath, { recursive: true })
+  fs.mkdirSync(metaPath, { recursive: true })
+
+  // Generate files
+  console.log('\n📝 Generating files...')
+
+  // SKILL.md
+  const skillContent = generateSkillMd(info)
+  fs.writeFileSync(path.join(aiContextPath, 'SKILL.md'), skillContent)
+  console.log('   ✓ SKILL.md')
+
+  // PROJECT-ESSENCE.md
+  const essenceContent = generateProjectEssence(info)
+  fs.writeFileSync(path.join(referencesPath, 'PROJECT-ESSENCE.md'), essenceContent)
+  console.log('   ✓ references/PROJECT-ESSENCE.md')
+
+  // ARCHITECTURE.md
+  const archContent = generateArchitecture(info)
+  fs.writeFileSync(path.join(referencesPath, 'ARCHITECTURE.md'), archContent)
+  console.log('   ✓ references/ARCHITECTURE.md')
+
+  // DECISIONS.md
+  const decisionsContent = generateDecisions(info)
+  fs.writeFileSync(path.join(referencesPath, 'DECISIONS.md'), decisionsContent)
+  console.log('   ✓ references/DECISIONS.md')
+
+  // DYNAMICS.md
+  const dynamicsContent = generateDynamics(info)
+  fs.writeFileSync(path.join(aiContextPath, 'DYNAMICS.md'), dynamicsContent)
+  console.log('   ✓ DYNAMICS.md')
+
+  // MAINTENANCE.md
+  const maintenanceContent = generateMaintenance(info)
+  fs.writeFileSync(path.join(metaPath, 'MAINTENANCE.md'), maintenanceContent)
+  console.log('   ✓ meta/MAINTENANCE.md')
+
+  console.log('\n✅ .ai-context generated successfully!')
+  console.log('\n📌 Next steps:')
+  console.log('   1. Review generated files and fill in [TBD] placeholders')
+  console.log('   2. Add your project-specific architecture details')
+  console.log('   3. Document any non-obvious design decisions')
+  console.log('   4. Add current issues to DYNAMICS.md if any\n')
+}
+
+// =============================================================================
+// CLI Entry Point
+// =============================================================================
+
+const projectPath = process.argv[2] || process.cwd()
+generate(projectPath).catch(console.error)
