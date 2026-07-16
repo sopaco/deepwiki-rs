@@ -86,6 +86,17 @@ where
     }
 }
 
+fn system_boundary_components_lenient(v: Option<&serde_json::Value>) -> Vec<String> {
+    match v {
+        Some(serde_json::Value::String(s)) => vec![s.clone()],
+        Some(serde_json::Value::Array(arr)) => arr
+            .iter()
+            .filter_map(|v| v.as_str().map(String::from))
+            .collect(),
+        _ => vec![],
+    }
+}
+
 fn deserialize_system_boundary_lenient<'de, D>(
     deserializer: D,
 ) -> Result<SystemBoundary, D::Error>
@@ -101,14 +112,8 @@ where
                     .and_then(|v| v.as_str())
                     .map(String::from)
                     .unwrap_or_default(),
-                included_components: _map.get("included_components")
-                    .and_then(|v| v.as_array())
-                    .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
-                    .unwrap_or_default(),
-                excluded_components: _map.get("excluded_components")
-                    .and_then(|v| v.as_array())
-                    .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
-                    .unwrap_or_default(),
+                included_components: system_boundary_components_lenient(_map.get("included_components")),
+                excluded_components: system_boundary_components_lenient(_map.get("excluded_components")),
             })
         }
         serde_json::Value::String(s) => {
@@ -116,12 +121,8 @@ where
             if let Ok(parsed) = serde_json::from_str::<serde_json::Value>(&s) {
                 Ok(SystemBoundary {
                     scope: parsed.get("scope").and_then(|v| v.as_str()).map(String::from).unwrap_or_default(),
-                    included_components: parsed.get("included_components").and_then(|v| v.as_array())
-                        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
-                        .unwrap_or_default(),
-                    excluded_components: parsed.get("excluded_components").and_then(|v| v.as_array())
-                        .map(|arr| arr.iter().filter_map(|v| v.as_str().map(String::from)).collect())
-                        .unwrap_or_default(),
+                    included_components: system_boundary_components_lenient(parsed.get("included_components")),
+                    excluded_components: system_boundary_components_lenient(parsed.get("excluded_components")),
                 })
             } else {
                 Err(serde::de::Error::custom("Failed to parse system_boundary from string"))
@@ -1580,7 +1581,7 @@ mod tests {
             "system_boundary": {
                 "scope": "Telemetry ingestion",
                 "included_components": "reader",
-                "excluded_components": ["ui"]
+                "excluded_components": "ui"
             },
             "confidence_score": "8.4"
         });
@@ -1592,6 +1593,27 @@ mod tests {
         assert_eq!(report.target_users.len(), 2);
         assert_eq!(report.external_systems.len(), 2);
         assert_eq!(report.system_boundary.included_components.len(), 1);
+        assert_eq!(report.system_boundary.included_components[0], "reader");
+        assert_eq!(report.system_boundary.excluded_components.len(), 1);
+        assert_eq!(report.system_boundary.excluded_components[0], "ui");
+    }
+
+    #[test]
+    fn test_system_context_report_deserialize_lenient_system_boundary_as_string() {
+        let payload = serde_json::json!({
+            "project_name": "telemetry-processor",
+            "system_boundary": "{\"scope\":\"Telemetry ingestion\",\"included_components\":\"reader\",\"excluded_components\":[\"ui\"]}",
+            "confidence_score": 8.4
+        });
+
+        let report: SystemContextReport = serde_json::from_value(payload)
+            .expect("SystemContextReport should deserialize when system_boundary is a JSON string");
+
+        assert_eq!(report.system_boundary.scope, "Telemetry ingestion");
+        assert_eq!(report.system_boundary.included_components.len(), 1);
+        assert_eq!(report.system_boundary.included_components[0], "reader");
+        assert_eq!(report.system_boundary.excluded_components.len(), 1);
+        assert_eq!(report.system_boundary.excluded_components[0], "ui");
     }
 
     #[test]
