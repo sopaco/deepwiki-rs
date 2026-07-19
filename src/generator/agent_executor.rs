@@ -31,7 +31,11 @@ pub async fn prompt(context: &GeneratorContext, params: AgentExecuteParams) -> R
     {
         let msg = context.config.target_language.msg_cache_hit().replace("{}", log_tag);
         println!("{}", msg);
-        return Ok(cached_reply.to_string());
+        let text = match cached_reply {
+            serde_json::Value::String(s) => s,
+            other => other.to_string(),
+        };
+        return Ok(text);
     }
 
     let (current, total) = params.progress.unwrap_or((1, 1));
@@ -83,7 +87,11 @@ pub async fn prompt_with_tools(
     {
         let msg = context.config.target_language.msg_cache_hit().replace("{}", log_tag);
         println!("{}", msg);
-        return Ok(cached_reply.to_string());
+        let text = match cached_reply {
+            serde_json::Value::String(s) => s,
+            other => other.to_string(),
+        };
+        return Ok(text);
     }
 
     let (current, total) = params.progress.unwrap_or((1, 1));
