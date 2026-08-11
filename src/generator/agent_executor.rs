@@ -56,12 +56,14 @@ pub async fn prompt(context: &GeneratorContext, params: AgentExecuteParams) -> R
     let input_text = format!("{} {}", prompt_sys, prompt_user);
     let token_usage = estimate_token_usage(&input_text, &reply);
 
-    // Cache result - Use method with token information
+    // Cache result - Use method with token information.
+    // Note: cache the String value directly (not JSON-encoded), otherwise
+    // serde_json wraps it in quotes and cached reads return a quoted string.
     context
         .cache_manager
         .write()
         .await
-        .set_with_tokens(cache_scope, &prompt_key, &reply, token_usage)
+        .set_with_tokens(cache_scope, &prompt_key, reply.clone(), token_usage)
         .await?;
 
     Ok(reply)

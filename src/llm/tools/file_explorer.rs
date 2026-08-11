@@ -43,9 +43,36 @@ impl AgentToolFileExplorer {
         Self { config }
     }
 
+    /// Resolve an agent-supplied path relative to the project root, refusing
+    /// absolute paths and `..` traversal that would escape the root.
+    fn resolve_within_root(&self, path: &str) -> Result<std::path::PathBuf> {
+        let p = std::path::Path::new(path);
+        if p.is_absolute() {
+            anyhow::bail!("absolute paths are not allowed");
+        }
+        let candidate = self.config.project_path.join(p);
+        let mut normalized = std::path::PathBuf::new();
+        for comp in candidate.components() {
+            match comp {
+                std::path::Component::ParentDir => {
+                    if !normalized.pop() {
+                        anyhow::bail!("path escapes project root");
+                    }
+                }
+                std::path::Component::CurDir => {}
+                other => normalized.push(other.as_os_str()),
+            }
+        }
+        if normalized.starts_with(&self.config.project_path) {
+            Ok(normalized)
+        } else {
+            anyhow::bail!("path escapes project root")
+        }
+    }
+
     async fn list_directory(&self, args: &FileExplorerArgs) -> Result<FileExplorerResult> {
         let target_path = if let Some(path) = &args.path {
-            self.config.project_path.join(path)
+            self.resolve_within_root(path)?
         } else {
             self.config.project_path.clone()
         };
@@ -141,7 +168,7 @@ impl AgentToolFileExplorer {
             .ok_or_else(|| anyhow::anyhow!("find_files action requires pattern parameter"))?;
 
         let search_path = if let Some(path) = &args.path {
-            self.config.project_path.join(path)
+            self.resolve_within_root(path)?
         } else {
             self.config.project_path.clone()
         };
@@ -203,7 +230,15 @@ impl AgentToolFileExplorer {
             .as_ref()
             .ok_or_else(|| anyhow::anyhow!("get_file_info action requires path parameter"))?;
 
-        let target_path = self.config.project_path.join(file_path);
+        let target_path = match self.resolve_within_root(file_path) {
+            Ok(p) => p,
+            Err(_) => {
+                return Ok(FileExplorerResult {
+                    insights: vec![format!("File does not exist: {}", file_path)],
+                    ..Default::default()
+                });
+            }
+        };
 
         if !target_path.exists() {
             return Ok(FileExplorerResult {

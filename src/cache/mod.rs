@@ -61,7 +61,9 @@ impl CacheManager {
             .unwrap()
             .as_secs();
         let expire_seconds = self.config.expire_hours * 3600;
-        now - timestamp > expire_seconds
+        // Use saturating_sub: a timestamp in the future (clock skew, tampered
+        // cache file) must not underflow and panic.
+        now.saturating_sub(timestamp) > expire_seconds
     }
 
     /// Get cache

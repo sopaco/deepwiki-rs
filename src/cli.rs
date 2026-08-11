@@ -140,7 +140,13 @@ impl Args {
         let mut config = if let Some(config_path) = &self.config {
             // If config file path is explicitly specified, load from that path
             let msg = target_lang.msg_config_read_error().replace("{:?}", &format!("{:?}", config_path));
-            Config::from_file(config_path).expect(&msg)
+            match Config::from_file(config_path) {
+                Ok(c) => c,
+                Err(e) => {
+                    eprintln!("{}: {}", msg, e);
+                    std::process::exit(1);
+                }
+            }
         } else {
             // If no config file is explicitly specified, try loading from default location
             let default_config_path = std::env::current_dir()
@@ -149,7 +155,13 @@ impl Args {
 
             if default_config_path.exists() {
                 let msg = target_lang.msg_config_read_error().replace("{:?}", &format!("{:?}", default_config_path));
-                Config::from_file(&default_config_path).expect(&msg)
+                match Config::from_file(&default_config_path) {
+                    Ok(c) => c,
+                    Err(e) => {
+                        eprintln!("{}: {}", msg, e);
+                        std::process::exit(1);
+                    }
+                }
             } else {
                 // Default config file doesn't exist, use default values
                 Config::default()

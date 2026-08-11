@@ -176,7 +176,7 @@ impl KeyModulesInsight {
         let all_insights = context
             .get_from_memory::<CodeAndDirectoryInsights>(MemoryScope::PREPROCESS, ScopedKeys::CODE_INSIGHTS)
             .await
-            .expect("memory of CODE_INSIGHTS not found in PREPROCESS");
+            .ok_or_else(|| anyhow::anyhow!("memory of CODE_INSIGHTS not found in PREPROCESS"))?;
 
         // Collect all code paths associated with this domain
         let mut domain_paths: HashSet<String> = HashSet::new();
