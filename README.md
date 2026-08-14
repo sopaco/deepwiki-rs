@@ -28,16 +28,16 @@
 
 <div align="center">
 
-**🚀 Litho has evolved into [Terrain](https://github.com/sopaco/mind-mesh)** — give your AI agents a living map of your codebase.
+**🚀 Litho has evolved into [Terrain](https://github.com/sopaco/terrain)** — give your AI agents a living map of your codebase.
 
 <p align="center">
-  <a href="https://github.com/sopaco/mind-mesh"><img width="360" alt="Terrain — agent environment managements" src="https://github.com/user-attachments/assets/30ab7366-4159-4ccd-bcba-fdc145c901b5"></a>
-  <a href="https://github.com/sopaco/mind-mesh"><img width="360" alt="Terrain — engineering knowledge assets" src="https://github.com/user-attachments/assets/bbec023f-7275-4378-a763-8bbda9ceef8e"></a>
+  <a href="https://github.com/sopaco/terrain"><img width="360" alt="Terrain — agent environment managements" src="https://github.com/user-attachments/assets/30ab7366-4159-4ccd-bcba-fdc145c901b5"></a>
+  <a href="https://github.com/sopaco/terrain"><img width="360" alt="Terrain — engineering knowledge assets" src="https://github.com/user-attachments/assets/bbec023f-7275-4378-a763-8bbda9ceef8e"></a>
 </p>
 
 <sub>On top of Litho: knowledge base stays in sync with code · broader language & framework support · mainstream agents (Claude Code, Codex, DeepSeek Harness…) read it via ACP · Litho Book built in.</sub>
 
-**[Check out Terrain →](https://github.com/sopaco/mind-mesh)** &nbsp;·&nbsp; *Litho stays the fast, focused C4 doc generator.*
+**[Check out Terrain →](https://github.com/sopaco/terrain)** &nbsp;·&nbsp; *Litho stays the fast, focused C4 doc generator.*
 
 </div>
 
