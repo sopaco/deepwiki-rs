@@ -31,8 +31,8 @@
 **🚀 Litho has evolved into [Terrain](https://github.com/sopaco/terrain)** — give your AI agents a living map of your codebase.
 
 <p align="center">
-  <a href="https://github.com/sopaco/terrain"><img width="360" alt="Terrain — agent environment managements" src="https://github.com/user-attachments/assets/30ab7366-4159-4ccd-bcba-fdc145c901b5"></a>
-  <a href="https://github.com/sopaco/terrain"><img width="360" alt="Terrain — engineering knowledge assets" src="https://github.com/user-attachments/assets/bbec023f-7275-4378-a763-8bbda9ceef8e"></a>
+  <a href="https://github.com/sopaco/terrain"><img width="360" alt="Terrain — agent environment managements" src="./assets/snapshot_terrain_agent_environmen_ managements.webp"></a>
+  <a href="https://github.com/sopaco/terrain"><img width="360" alt="Terrain — engineering knowledge assets" src="./assets/snapshot_terrain_engineering_knowledge_assets.webp"></a>
 </p>
 
 <sub>On top of Litho: knowledge base stays in sync with code · broader language & framework support · mainstream agents (Claude Code, Codex, DeepSeek Harness…) read it via ACP · Litho Book built in.</sub>
@@ -704,4 +704,3 @@ Yes, Litho can integrate with CI/CD pipelines to automatically generate document
 
 - Documentation: https://github.com/sopaco/deepwiki-rs/tree/main/docs
 - GitHub Issues: https://github.com/sopaco/deepwiki-rs/issues
-

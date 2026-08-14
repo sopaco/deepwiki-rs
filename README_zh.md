@@ -24,6 +24,21 @@
   <a href="https://trendshift.io/repositories/67975?utm_source=repository-badge&amp;utm_medium=badge&amp;utm_campaign=badge-repository-67975" target="_blank" rel="noopener noreferrer"><img src="https://trendshift.io/api/badge/repositories/67975" alt="sopaco%2Fdeepwiki-rs | Trendshift" width="250" height="55"/></a>
 </div>
 
+<div align="center">
+
+**🚀 Litho 已经升级到 [Terrain](https://github.com/sopaco/terrain)** — 为你的Agent获得AI友好的工程知识资产和AI友好的工程环境.
+
+<p align="center">
+  <a href="https://github.com/sopaco/terrain"><img width="360" alt="Terrain — agent environment managements" src="./assets/snapshot_terrain_agent_environmen_ managements.webp"></a>
+  <a href="https://github.com/sopaco/terrain"><img width="360" alt="Terrain — engineering knowledge assets" src="./assets/snapshot_terrain_engineering_knowledge_assets.webp"></a>
+</p>
+
+<sub>基于Litho扩展的最佳的方案: 基于代码仓库的增量知识生成，一体化集成文档阅读与Ask助手，为各类框架提供泛化性支持，支持主流Agent (Claude Code, Codex, DeepSeek Harness…)</sub>
+
+**[Check out Terrain →](https://github.com/sopaco/terrain)** &nbsp;·&nbsp; *Litho stays the fast, focused C4 doc generator.*
+
+</div>
+
 <hr />
 
 # 👋 什么是 Litho
