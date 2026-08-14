@@ -26,6 +26,21 @@
 
 <hr />
 
+<div align="center">
+
+**🚀 Litho has evolved into [Terrain](https://github.com/sopaco/mind-mesh)** — give your AI agents a living map of your codebase.
+
+<p align="center">
+  <a href="https://github.com/sopaco/mind-mesh"><img width="360" alt="Terrain — engineering knowledge assets" src="https://github.com/user-attachments/assets/bbec023f-7275-4378-a763-8bbda9ceef8e"></a>
+  <a href="https://github.com/sopaco/mind-mesh"><img width="360" alt="Terrain — DeepWiki Q&A" src="https://github.com/user-attachments/assets/759dde08-984a-4d23-98ac-0bbb0f467c09"></a>
+</p>
+
+<sub>On top of Litho: knowledge base stays in sync with code · broader language & framework support · mainstream agents (Claude Code, Codex, DeepSeek Harness…) read it via ACP · Litho Book built in.</sub>
+
+**[Check out Terrain →](https://github.com/sopaco/mind-mesh)** &nbsp;·&nbsp; *Litho stays the fast, focused C4 doc generator.*
+
+</div>
+
 # 👋 What's Litho
 
 **Litho** is an AI-powered documentation generation engine that automatically analyzes your source code and generates comprehensive, professional architecture documentation in the C4 model format. No more manual documentation that falls behind code changes - Litho keeps your documentation perfectly in sync with your codebase.
