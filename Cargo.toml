@@ -10,6 +10,8 @@ repository = "https://github.com/sopaco/deepwiki-rs"
 [dependencies]
 # rig
 rig-core = "0.35"
+rmcp = { version = "1.8", default-features = false, features = ["client", "reqwest", "transport-streamable-http-client-reqwest"] }
+mcp-http = { package = "reqwest", version = "0.13", default-features = false }
 
 # 网络
 reqwest = { version = "0.12", features = ["json"] }
@@ -58,3 +60,6 @@ markdown = "1.0"
 futures = "0.3"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 glob = "0.3"
+
+[dev-dependencies]
+wiremock = "0.6"

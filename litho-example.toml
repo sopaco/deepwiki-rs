@@ -173,6 +173,12 @@ timeout_seconds = 300
 disable_preset_tools = false
 
 # Maximum number of parallel LLM requests (default: 3)
+# Public web tools are available to tool-enabled agents by default.
+# Queries and URLs go to Parallel; use only public information.
+# Set true to keep local tools while disabling web search and fetching.
+# disable_web_search = false
+# web_search_mcp_url = "https://search.parallel.ai/mcp"
+# Both discovery and tool calls use timeout_seconds.
 # max_parallels = 3
 
 # Tool call concurrency in ReAct loops (default: 4)

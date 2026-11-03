@@ -194,6 +194,14 @@ pub struct LLMConfig {
 
     pub disable_preset_tools: bool,
 
+    /// Disable public web search and fetching independently of local tools.
+    #[serde(default)]
+    pub disable_web_search: bool,
+
+    /// Parallel Search MCP endpoint. No account or API key is required by default.
+    #[serde(default = "default_web_search_mcp_url")]
+    pub web_search_mcp_url: String,
+
     pub max_parallels: usize,
 
     /// Maximum tool calling turns for agent with tools
@@ -203,6 +211,10 @@ pub struct LLMConfig {
     /// Concurrency level for parallel tool execution
     #[serde(default = "default_tool_concurrency")]
     pub tool_concurrency: usize,
+}
+
+fn default_web_search_mcp_url() -> String {
+    crate::llm::tools::parallel::DEFAULT_MCP_URL.to_string()
 }
 
 fn default_max_turns() -> usize {
@@ -760,6 +772,8 @@ impl Default for LLMConfig {
             retry_delay_ms: 5000,
             timeout_seconds: 300,
             disable_preset_tools: false,
+            disable_web_search: false,
+            web_search_mcp_url: default_web_search_mcp_url(),
             max_parallels: 3,
             max_turns: 100,
             tool_concurrency: 4,
@@ -794,7 +808,7 @@ mod tests {
     #[test]
     fn test_boundary_analysis_default_values() {
         let config = BoundaryAnalysisConfig::default();
-        
+
         assert_eq!(config.code_insights_limit, 25);
         assert_eq!(config.include_source_code, false);
         assert_eq!(config.only_directories_when_files_more_than, Some(100));

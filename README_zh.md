@@ -531,6 +531,20 @@ project-docs/
 |_ 6、数据库概览        # 数据库架构、表关系（仅 SQL 项目）
 ```
 
+### 公开网页研究
+
+使用预设工具的智能体（包括架构研究智能体）默认可以通过
+[Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp)
+搜索公开的框架文档并提取网页内容。搜索使用 Fast 模式，无需 Parallel 账号或 API Key。
+只有模型调用工具时才会访问网络；仓库相关结论仍应以本地源码为依据。
+
+搜索目标、查询词和请求的 URL 会发送给配置的 MCP 服务，请仅用于公开信息。
+在现有 `[llm]` 配置中设置 `disable_web_search = true`，可关闭网页工具并保留本地工具；
+`disable_preset_tools = true` 会关闭全部预设工具。不使用工具的调用以及 LLM 提供方和凭据保持原样。
+`web_search_mcp_url` 默认为 `https://search.parallel.ai/mcp`，显式设置的地址不会自动回退。
+发现工具和调用工具的超时由 `llm.timeout_seconds` 控制。每个智能体研究任务使用独立的匿名 ID，
+同一任务的搜索、提取和重试共用该 ID。服务错误通过现有工具错误路径报告，匿名免费服务有使用限额。
+
 # 🤝 贡献
 
 欢迎各种形式的贡献！通过 [GitHub Issues](https://github.com/sopaco/deepwiki-rs/issues) 报告问题或提交功能请求。

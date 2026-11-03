@@ -628,6 +628,28 @@ project-docs/
 ├── 6. Database-Overview     # Database schema, tables, relationships (SQL projects only)
 ```
 
+### Public web research
+
+Tool-enabled agents can search public framework documentation and fetch pages with
+[Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp).
+Search uses Fast mode and works without a Parallel account or API key. The tools
+are available by default to agents that use preset tools, including architecture
+research; they run only when the model calls them. Local files remain the source
+for claims about your repository.
+
+Search objectives, queries and requested URLs are sent to the configured MCP
+service. Use these tools for public information only. To keep local tools while
+disabling web access, set `disable_web_search = true` in your existing `[llm]`
+configuration. `disable_preset_tools = true` disables both local and web tools.
+Calls without tools and configured LLM providers and credentials are unchanged.
+
+The default `web_search_mcp_url` is `https://search.parallel.ai/mcp`; an explicit
+endpoint is used as configured, with no fallback. MCP discovery and tool calls
+use `llm.timeout_seconds`. Search and fetch share an opaque ID for each agent
+research run, including retries; a new run gets a new ID. Connection and service
+errors are reported through the existing tool error path. Free anonymous access
+has service-managed limits.
+
 # 🤝 Contribute
 We welcome all forms of contributions! Report bugs or submit feature requests through [GitHub Issues](https://github.com/sopaco/deepwiki-rs/issues).
 

@@ -1,5 +1,8 @@
 //! Agent builder - Responsible for building and configuring LLM Agent
 
+use crate::llm::tools::parallel::{ParallelClient, ParallelConversation};
+use std::sync::Arc;
+
 use crate::{
     config::Config,
     llm::client::providers::{ProviderAgent, ProviderClient},
@@ -10,12 +13,21 @@ use crate::{
 pub struct AgentBuilder<'a> {
     client: &'a ProviderClient,
     config: &'a Config,
+    web_search: Option<&'a Arc<ParallelClient>>,
 }
 
 impl<'a> AgentBuilder<'a> {
     /// Create a new Agent builder
-    pub fn new(client: &'a ProviderClient, config: &'a Config) -> Self {
-        Self { client, config }
+    pub fn new(
+        client: &'a ProviderClient,
+        config: &'a Config,
+        web_search: Option<&'a Arc<ParallelClient>>,
+    ) -> Self {
+        Self {
+            client,
+            config,
+            web_search,
+        }
     }
 
     /// Build Agent with built-in preset tools
@@ -31,12 +43,16 @@ impl<'a> AgentBuilder<'a> {
                 system_prompt
             );
 
+            let web_search = self
+                .web_search
+                .map(|client| ParallelConversation::new(client.clone()));
             self.client.create_agent_with_tools(
                 model,
                 &system_prompt_with_tools,
                 llm_config,
                 &file_explorer,
                 &file_reader,
+                web_search.as_ref(),
             )
         } else {
             self.client.create_agent(model, system_prompt, llm_config)

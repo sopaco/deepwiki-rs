@@ -234,6 +234,7 @@ impl ProviderClient {
         config: &LLMConfig,
         file_explorer: &crate::llm::tools::file_explorer::AgentToolFileExplorer,
         file_reader: &crate::llm::tools::file_reader::AgentToolFileReader,
+        web_search: Option<&crate::llm::tools::parallel::ParallelConversation>,
     ) -> ProviderAgent {
         let tool_time = AgentToolTime::new();
 
@@ -253,6 +254,7 @@ impl ProviderClient {
                     .tool(file_explorer.clone())
                     .tool(file_reader.clone())
                     .tool(tool_time)
+                    .tools(web_tools(web_search))
                     .build();
                 ProviderAgent::OpenAI {
                     agent,
@@ -279,6 +281,7 @@ impl ProviderClient {
                     .tool(file_explorer.clone())
                     .tool(file_reader.clone())
                     .tool(tool_time)
+                    .tools(web_tools(web_search))
                     .build();
                 ProviderAgent::Moonshot(agent)
             }
@@ -297,6 +300,7 @@ impl ProviderClient {
                     .tool(file_explorer.clone())
                     .tool(file_reader.clone())
                     .tool(tool_time)
+                    .tools(web_tools(web_search))
                     .build();
                 ProviderAgent::DeepSeek(agent)
             }
@@ -314,6 +318,7 @@ impl ProviderClient {
                     .tool(file_explorer.clone())
                     .tool(file_reader.clone())
                     .tool(tool_time)
+                    .tools(web_tools(web_search))
                     .build();
                 ProviderAgent::Mistral(agent)
             }
@@ -331,6 +336,7 @@ impl ProviderClient {
                     .tool(file_explorer.clone())
                     .tool(file_reader.clone())
                     .tool(tool_time)
+                    .tools(web_tools(web_search))
                     .build();
                 ProviderAgent::OpenRouter(agent)
             }
@@ -349,6 +355,7 @@ impl ProviderClient {
                     .tool(file_explorer.clone())
                     .tool(file_reader.clone())
                     .tool(tool_time)
+                    .tools(web_tools(web_search))
                     .build();
                 ProviderAgent::Anthropic(agent)
             }
@@ -370,6 +377,7 @@ impl ProviderClient {
                     .tool(file_explorer.clone())
                     .tool(file_reader.clone())
                     .tool(tool_time)
+                    .tools(web_tools(web_search))
                     .additional_params(serde_json::to_value(cfg).unwrap())
                     .build();
                 ProviderAgent::Gemini(agent)
@@ -389,6 +397,7 @@ impl ProviderClient {
                     .tool(file_explorer.clone())
                     .tool(file_reader.clone())
                     .tool(tool_time)
+                    .tools(web_tools(web_search))
                     .build();
                 ProviderAgent::Ollama(agent)
             }
@@ -544,9 +553,11 @@ impl ProviderAgent {
                     Err(e) => {
                         let error_msg = format!("{:?}", e);
                         // Check if it's an API response parsing error
-                        if error_msg.contains("ApiResponse")
-                            || error_msg.contains("untagged enum")
-                            || error_msg.contains("JsonError")
+                        // Tool failures must not become a tool-free HTTP answer.
+                        if matches!(e, rig::completion::PromptError::CompletionError(_))
+                            && (error_msg.contains("ApiResponse")
+                                || error_msg.contains("untagged enum")
+                                || error_msg.contains("JsonError"))
                         {
                             // Fallback to direct HTTP call
                             Self::prompt_via_http(
@@ -708,5 +719,19 @@ where
                 extractor.extract(prompt).await.map_err(|e| e.into())
             }
         }
+    }
+}
+
+/// Build fresh tool wrappers, sharing one conversation ID across search and fetch.
+fn web_tools(
+    conversation: Option<&crate::llm::tools::parallel::ParallelConversation>,
+) -> Vec<Box<dyn rig::tool::ToolDyn>> {
+    use crate::llm::tools::parallel::{WebFetch, WebSearch};
+    match conversation {
+        Some(conversation) => vec![
+            Box::new(WebSearch(conversation.clone())),
+            Box::new(WebFetch(conversation.clone())),
+        ],
+        None => Vec::new(),
     }
 }

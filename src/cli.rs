@@ -87,7 +87,7 @@ pub struct Args {
     #[arg(long)]
     pub target_language: Option<String>,
 
-    /// Auto use report assistant to view report after generation
+    /// Disable all preset tools, including local files and public web research
     #[arg(long, default_value = "false", action = clap::ArgAction::SetTrue)]
     pub disable_preset_tools: bool,
 
@@ -217,7 +217,8 @@ impl Args {
         if let Some(tool_concurrency) = self.tool_concurrency {
             config.llm.tool_concurrency = tool_concurrency;
         }
-        config.llm.disable_preset_tools = self.disable_preset_tools;
+        // An absent disable-only flag must preserve a saved tool permission.
+        config.llm.disable_preset_tools |= self.disable_preset_tools;
 
         // Target language configuration
         if let Some(target_language_str) = self.target_language {

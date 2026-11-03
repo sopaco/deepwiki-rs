@@ -1,9 +1,10 @@
 //! LLM client - Provides unified LLM service interface
 
+use crate::llm::tools::parallel::ParallelClient;
 use anyhow::Result;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
-use std::future::Future;
+use std::{future::Future, sync::Arc};
 
 use crate::{config::Config, llm::client::utils::evaluate_befitting_model};
 
@@ -29,18 +30,31 @@ use summary_reasoner::SummaryReasoner;
 pub struct LLMClient {
     config: Config,
     client: ProviderClient,
+    web_search: Option<Arc<ParallelClient>>,
 }
 
 impl LLMClient {
     /// Create a new LLM client
     pub fn new(config: Config) -> Result<Self> {
         let client = ProviderClient::new(&config.llm)?;
-        Ok(Self { client, config })
+        let web_search = if config.llm.disable_preset_tools || config.llm.disable_web_search {
+            None
+        } else {
+            Some(Arc::new(ParallelClient::new(
+                &config.llm.web_search_mcp_url,
+                config.llm.timeout_seconds,
+            )?))
+        };
+        Ok(Self {
+            client,
+            config,
+            web_search,
+        })
     }
 
     /// Get Agent builder
     fn get_agent_builder(&self) -> AgentBuilder<'_> {
-        AgentBuilder::new(&self.client, &self.config)
+        AgentBuilder::new(&self.client, &self.config, self.web_search.as_ref())
     }
 
     /// Generic retry logic for handling async operation retry mechanism
@@ -243,3 +257,6 @@ impl LLMClient {
             .await
     }
 }
+
+#[cfg(test)]
+mod web_search_tests;
