@@ -509,6 +509,8 @@ deepwiki-rs -p ./src --model-efficient GPT-5-mini --model-poweruful GPT-5-Pro --
 
 Litho supports mounting external documentation as knowledge sources to enhance generated documentation with business context and architectural decisions.
 
+For an optional source-context input, see [Preparing Sem context as local knowledge](docs/sem-context.md).
+
 ### Supported Document Types
 - **PDF** - Architecture diagrams, design documents
 - **Markdown** - Technical documentation, ADRs
