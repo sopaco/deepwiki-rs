@@ -106,7 +106,7 @@ impl CachePerformanceMonitor {
         // Calculate saved cost based on actual token usage
         let estimated_cost_saved = token_usage.estimate_cost(model_name);
         self.metrics.total_cost_saved.fetch_add(
-            (estimated_cost_saved * 1000.0) as usize, // Store as milli-dollars
+            (estimated_cost_saved * 1_000_000.0).round() as usize, // Store as micro-dollars
             Ordering::Relaxed,
         );
 
@@ -166,7 +166,7 @@ impl CachePerformanceMonitor {
             .total_inference_time_saved
             .load(Ordering::Relaxed) as f64
             / 1000.0; // Convert to seconds
-        let cost_saved = self.metrics.total_cost_saved.load(Ordering::Relaxed) as f64 / 1000.0; // Convert to dollars
+        let cost_saved = self.metrics.total_cost_saved.load(Ordering::Relaxed) as f64 / 1_000_000.0; // Convert to dollars
 
         let input_tokens_saved = self
             .metrics
@@ -203,5 +203,22 @@ impl CachePerformanceMonitor {
 impl Default for CachePerformanceMonitor {
     fn default() -> Self {
         Self::new(TargetLanguage::default())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cost_saved_keeps_sub_cent_hits() {
+        let monitor = CachePerformanceMonitor::default();
+        // 2,000 in + 500 out on gpt-4o-mini is $0.0006, under one milli-dollar
+        let usage = TokenUsage::new(2_000, 500);
+        monitor.record_cache_hit("test", Duration::from_secs(1), usage.clone(), "gpt-4o-mini");
+        monitor.record_cache_hit("test", Duration::from_secs(1), usage, "gpt-4o-mini");
+
+        let report = monitor.generate_report();
+        assert!((report.cost_saved - 0.0012).abs() < 1e-9);
     }
 }

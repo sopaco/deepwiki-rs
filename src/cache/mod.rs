@@ -103,7 +103,7 @@ impl CacheManager {
                                 category,
                                 estimated_inference_time,
                                 token_usage.clone(),
-                                "",
+                                entry.model_name.as_deref().unwrap_or(""),
                             );
                         }
                         Ok(Some(entry.data))
@@ -130,6 +130,7 @@ impl CacheManager {
         prompt: &str,
         data: T,
         token_usage: TokenUsage,
+        model_name: &str,
     ) -> Result<()>
     where
         T: Serialize,
@@ -156,7 +157,7 @@ impl CacheManager {
             timestamp,
             prompt_hash: hash,
             token_usage: Some(token_usage),
-            model_name: None,
+            model_name: Some(model_name.to_string()),
         };
 
         match serde_json::to_string_pretty(&entry) {
