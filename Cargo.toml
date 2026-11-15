@@ -52,6 +52,9 @@ base64 = "0.22"
 # PDF parsing
 pdf-extract = "0.7"
 
+# 按模型计价
+llm-budget = "0.3"
+
 # 其他工具
 async-trait = "0.1"
 rand = "0.9"

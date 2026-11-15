@@ -3,7 +3,7 @@ use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
 use crate::generator::context::GeneratorContext;
-use crate::llm::client::utils::estimate_token_usage;
+use crate::llm::client::utils::{estimate_token_usage, evaluate_befitting_model};
 
 pub struct AgentExecuteParams {
     pub prompt_sys: String,
@@ -55,6 +55,7 @@ pub async fn prompt(context: &GeneratorContext, params: AgentExecuteParams) -> R
     // Estimate token usage
     let input_text = format!("{} {}", prompt_sys, prompt_user);
     let token_usage = estimate_token_usage(&input_text, &reply);
+    let (model_name, _) = evaluate_befitting_model(&context.config.llm, prompt_sys, prompt_user);
 
     // Cache result - Use method with token information.
     // Note: cache the String value directly (not JSON-encoded), otherwise
@@ -63,7 +64,7 @@ pub async fn prompt(context: &GeneratorContext, params: AgentExecuteParams) -> R
         .cache_manager
         .write()
         .await
-        .set_with_tokens(cache_scope, &prompt_key, reply.clone(), token_usage)
+        .set_with_tokens(cache_scope, &prompt_key, reply.clone(), token_usage, &model_name)
         .await?;
 
     Ok(reply)
@@ -114,13 +115,14 @@ pub async fn prompt_with_tools(
     let input_text = format!("{} {}", prompt_sys, prompt_user);
     let output_text = serde_json::to_string(&reply).unwrap_or_default();
     let token_usage = estimate_token_usage(&input_text, &output_text);
+    let (model_name, _) = evaluate_befitting_model(&context.config.llm, prompt_sys, prompt_user);
 
     // Cache result - Use method with token information
     context
         .cache_manager
         .write()
         .await
-        .set_with_tokens(cache_scope, &prompt_key, &reply, token_usage)
+        .set_with_tokens(cache_scope, &prompt_key, &reply, token_usage, &model_name)
         .await?;
 
     Ok(reply)
@@ -167,13 +169,14 @@ where
     let input_text = format!("{} {}", prompt_sys, prompt_user);
     let output_text = serde_json::to_string(&reply).unwrap_or_default();
     let token_usage = estimate_token_usage(&input_text, &output_text);
+    let (model_name, _) = evaluate_befitting_model(&context.config.llm, prompt_sys, prompt_user);
 
     // Cache result - Use method with token information
     context
         .cache_manager
         .write()
         .await
-        .set_with_tokens(cache_scope, &prompt_key, &reply, token_usage)
+        .set_with_tokens(cache_scope, &prompt_key, &reply, token_usage, &model_name)
         .await?;
 
     Ok(reply)
